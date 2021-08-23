@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "snyk-watcher"
+version = "0.1.0"
+description = ""
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pysnyk = "^0.6.2"
+PyGithub = "^1.55"
+click = "^8.0.1"
+pydantic = "^1.8.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
