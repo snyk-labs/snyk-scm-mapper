@@ -8,11 +8,13 @@ authors = ["Your Name <you@example.com>"]
 python = "^3.9"
 pysnyk = "^0.6.2"
 PyGithub = "^1.55"
-click = "^8.0.1"
+click = "^7.1.1"
 pydantic = "^1.8.2"
+typer = "^0.3.2"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
+black = "^21.7b0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
