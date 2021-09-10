@@ -2,8 +2,8 @@
 schema: 1
 github_orgs: 
   - snyk-playground
-orgs_file: orgs.yaml
-targets_file: github-import-targets.json
+orgs_file: snyk-orgs.yaml
+targets_file_name: import-targets.json
 default:
   orgName: ie-playground
   integrationName: github-enterprise
