@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "snyk-watcher"
+name = "snyk-sync"
 version = "0.1.0"
-description = ""
-authors = ["Your Name <you@example.com>"]
+description = "A tool to sync Snyk projects with GitHub repos"
+authors = ["Chris Barker <chris.barker@snyk.io>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
