@@ -3,3 +3,4 @@
 cache/*
 .shell_env
 .dccache
+tests/examples/import_logs/

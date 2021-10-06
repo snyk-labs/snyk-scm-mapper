@@ -13,9 +13,9 @@ from typing import Optional
 from uuid import UUID
 
 from models import SnykWatchList, Repo, Project, Settings, Tag
-from utils import yopen, jopen, search_projects, RateLimit, newer
+from utils import yopen, jopen, search_projects, RateLimit, newer, jwrite
 
-app = typer.Typer()
+app = typer.Typer(add_completion=False)
 
 s = Settings()
 
@@ -24,85 +24,88 @@ watchlist = SnykWatchList()
 
 @app.callback(invoke_without_command=True)
 def main(
-        ctx: typer.Context,
-        cache_dir: Path = typer.Option(
-            default='cache',
-            exists=True,
-            file_okay=False,
-            dir_okay=True,
-            writable=True,
-            readable=True,
-            resolve_path=True,
-            help="Cache location",
-            envvar="SNYK_WATCHER_CACHE_DIR",
-        ), 
-        cache_timeout: int = typer.Option(
-            default=60,
-            help="Maximum cache age, in minutes",
-            envvar="SNYK_WATCHER_CACHE_TIMEOUT",
-        ),
-        forks: bool = typer.Option(
-            default=False,
-            help="Check forks for import.yaml files",
-            envvar="SNYK_WATCHER_FORKS"
-        ), 
-        conf: Path = typer.Option(
-            default='snyk_watcher.yaml',
-            exists=True,
-            file_okay=True,
-            dir_okay=False,
-            writable=False,
-            readable=True,
-            resolve_path=True,
-            envvar="SNYK_WATCHER_CONFIG",
-        ),
-        targets_file: Optional[Path] = typer.Option(
-            default=None,
-            exists=True,
-            file_okay=True,
-            dir_okay=False,
-            writable=True,
-            readable=True,
-            resolve_path=True,
-            envvar="SNYK_WATCHER_TARGETS_FILE",
-        ),
-        snyk_orgs_file: Optional[Path] = typer.Option(
-            default=None,
-            exists=True,
-            file_okay=True,
-            dir_okay=False,
-            writable=False,
-            readable=True,
-            resolve_path=True,
-            help='Snyk orgs to watch',
-            envvar="SNYK_WATCHER_SNYK_ORGS",
-        ),
-        default_org: str = typer.Option(
-            default=None,
-            help="Default Snyk Org to use from Orgs file.",
-            envvar="SNYK_WATCHER_DEFAULT_ORG",
-        ),
-        default_int: str = typer.Option(
-            default=None,
-            help="Default Snyk Integration to use with Default Org.",
-            envvar="SNYK_WATCHER_DEFAULT_INT",
-        ),
-        snyk_group: UUID = typer.Option(
-            ...,
-            help="Group ID, required but will scrape from ENV",
-            envvar="SNYK_GROUP",
-        ), 
-        snyk_token: UUID = typer.Option(
-            ...,
-            help="Snyk access token",
-            envvar="SNYK_TOKEN",
-        ), 
-        github_token: str = typer.Option(
-            ...,
-            help="GitHub access token",
-            envvar="GITHUB_TOKEN",
-        )
-    ):
+    ctx: typer.Context,
+    cache_dir: Path = typer.Option(
+        default="cache",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        resolve_path=True,
+        help="Cache location",
+        envvar="SNYK_WATCHER_CACHE_DIR",
+    ),
+    cache_timeout: int = typer.Option(
+        default=60,
+        help="Maximum cache age, in minutes",
+        envvar="SNYK_WATCHER_CACHE_TIMEOUT",
+    ),
+    forks: bool = typer.Option(
+        default=False,
+        help="Check forks for import.yaml files",
+        envvar="SNYK_WATCHER_FORKS",
+    ),
+    conf: Path = typer.Option(
+        default="snyk_watcher.yaml",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+        envvar="SNYK_WATCHER_CONFIG",
+    ),
+    targets_file: Optional[Path] = typer.Option(
+        default=None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=True,
+        readable=True,
+        resolve_path=True,
+        envvar="SNYK_WATCHER_TARGETS_FILE",
+    ),
+    snyk_orgs_file: Optional[Path] = typer.Option(
+        default=None,
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+        help="Snyk orgs to watch",
+        envvar="SNYK_WATCHER_SNYK_ORGS",
+    ),
+    default_org: str = typer.Option(
+        default=None,
+        help="Default Snyk Org to use from Orgs file.",
+        envvar="SNYK_WATCHER_DEFAULT_ORG",
+    ),
+    default_int: str = typer.Option(
+        default=None,
+        help="Default Snyk Integration to use with Default Org.",
+        envvar="SNYK_WATCHER_DEFAULT_INT",
+    ),
+    snyk_group: UUID = typer.Option(
+        ...,
+        help="Group ID, required but will scrape from ENV",
+        envvar="SNYK_GROUP",
+    ),
+    snyk_token: UUID = typer.Option(
+        ...,
+        help="Snyk access token",
+        envvar="SNYK_TOKEN",
+    ),
+    force_sync: bool = typer.Option(
+        False, "--sync", help="Forces a sync regardless of cache status"
+    ),
+    github_token: str = typer.Option(
+        ...,
+        help="GitHub access token",
+        envvar="GITHUB_TOKEN",
+    ),
+):
 
     # We keep this as the global settings hash
     global s
@@ -114,44 +117,47 @@ def main(
     #     s_dict[k] = vars()[k]
 
     # why are we creating a dict and then loading it?
-    
 
     # updating a global var
     # this is a lazy way of stripping all the data from the inputs into the settings we care about
     s = Settings.parse_obj(vars())
-    
+
     conf_dir = os.path.dirname(str(s.conf))
     conf_file = yopen(s.conf)
 
-
     if s.targets_file is None:
         s.targets_file = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
-    
+
     if s.snyk_orgs_file is None:
         s.snyk_orgs_file = Path(f'{conf_dir}/{conf_file["orgs_file"]}')
 
-    s.github_orgs = conf_file['github_orgs']
+    s.github_orgs = conf_file["github_orgs"]
 
     if s.default_org is None:
-        s.default_org = conf_file['default']['orgName']
-    
+        s.default_org = conf_file["default"]["orgName"]
+
     if s.default_int is None:
-        s.default_int = conf_file['default']['integrationName']
-    
+        s.default_int = conf_file["default"]["integrationName"]
 
     s.snyk_orgs = yopen(s.snyk_orgs_file)
 
-    s.default_org_id = s.snyk_orgs[s.default_org]['orgId']
-    s.default_int_id = s.snyk_orgs[s.default_org]['integrations'][s.default_int]
+    s.default_org_id = s.snyk_orgs[s.default_org]["orgId"]
+    s.default_int_id = s.snyk_orgs[s.default_org]["integrations"][s.default_int]
 
     if ctx.invoked_subcommand is None:
-        typer.echo("Snyk Watcher invoked with no subcommand, executing all")
+        typer.echo("Snyk Sync invoked with no subcommand, executing all", err=True)
         if status() is False:
             sync()
 
 
 @app.command()
-def sync():
+def sync(
+    show_rate_limit: bool = typer.Option(
+        False,
+        "--show-rate-limit",
+        help="Display GH rate limit status between each batch of API calls",
+    )
+):
     """
     Force a sync of the local cache of the GitHub / Snyk data.
     """
@@ -159,10 +165,10 @@ def sync():
     global watchlist
     global s
 
-    typer.echo("Sync starting")
+    typer.echo("Sync starting", err=True)
 
     # flush the watchlist
-    #watchlist = SnykWatchList()
+    # watchlist = SnykWatchList()
 
     gh = Github(s.github_token)
 
@@ -175,16 +181,16 @@ def sync():
     else:
         gh_orgs = list()
 
-    rate_limit.update(True)
+    rate_limit.update(show_rate_limit)
 
-    exclude_list=[]
+    exclude_list = []
 
-    typer.echo("Getting all GitHub repos")
+    typer.echo("Getting all GitHub repos", err=True)
     with typer.progressbar(gh_orgs, label="Processing: ") as gh_progress:
         for gh_org in gh_progress:
-            gh_repos = gh.search_repositories(f'org:{gh_org} fork:true')
+            gh_repos = gh.search_repositories(f"org:{gh_org} fork:true")
             for gh_repo in gh_repos:
-                #print(watchlist.has_repo(gh_repo.id))
+                # print(watchlist.has_repo(gh_repo.id))
                 if watchlist.has_repo(gh_repo.id) == False:
                     # i know there is a better way to do this
                     tmp_repo = {
@@ -200,11 +206,13 @@ def sync():
                         url=gh_repo.html_url,
                         fork=gh_repo.fork,
                         id=gh_repo.id,
-                        updated_at=str(gh_repo.updated_at)
+                        updated_at=str(gh_repo.updated_at),
                     )
                     watchlist.repos.append(tmp_target)
 
-                elif newer(watchlist.get_repo(gh_repo.id).updated_at, str(gh_repo.updated_at)):
+                elif newer(
+                    watchlist.get_repo(gh_repo.id).updated_at, str(gh_repo.updated_at)
+                ):
                     tmp_repo = {
                         "fork": gh_repo.fork,
                         "name": gh_repo.name,
@@ -213,28 +221,25 @@ def sync():
                         "url": gh_repo.html_url,
                         "project_base": gh_repo.full_name,
                     }
-                    watchlist.get_repo(gh_repo.url).source=tmp_repo,
-                    watchlist.get_repo(gh_repo.url).url=gh_repo.html_url,
-                    watchlist.get_repo(gh_repo.url).fork=gh_repo.fork,
-                    watchlist.get_repo(gh_repo.url).id=gh_repo.id,
-                    watchlist.get_repo(gh_repo.url).updated_at=str(gh_repo.updated_at)
+                    watchlist.get_repo(gh_repo.url).source = (tmp_repo,)
+                    watchlist.get_repo(gh_repo.url).url = (gh_repo.html_url,)
+                    watchlist.get_repo(gh_repo.url).fork = (gh_repo.fork,)
+                    watchlist.get_repo(gh_repo.url).id = (gh_repo.id,)
+                    watchlist.get_repo(gh_repo.url).updated_at = str(gh_repo.updated_at)
                 else:
                     exclude_list.append(gh_repo.id)
 
-    #print(exclude_list)
-    rate_limit.update(True)
+    # print(exclude_list)
+    rate_limit.update(show_rate_limit)
 
     import_yamls = []
     for gh_org in gh_orgs:
-        search = f'org:{gh_org} path:.snyk.d'
+        search = f"org:{gh_org} path:.snyk.d"
         import_repos = gh.search_code(query=search)
         import_repos = [y for y in import_repos if y.repository.id not in exclude_list]
-        import_yamls.extend([y for y in import_repos if y.name == 'import.yaml'])
+        import_yamls.extend([y for y in import_repos if y.name == "import.yaml"])
 
-    rate_limit.update(True)
-
-    for the_yaml in import_yamls:
-        print(the_yaml.sha)
+    rate_limit.update(show_rate_limit)
 
     # we will likely want to put a limit around this, as we need to walk forked repose and try to get import.yaml
     # since github won't index a fork if it has less stars than upstream
@@ -242,49 +247,46 @@ def sync():
     forks = [f for f in watchlist.repos if f.fork()]
     forks = [y for y in forks if y.id not in exclude_list]
 
-    if s.forks and len(forks) > 0:
-        typer.echo(f"Scanning {len(forks)} forks for import.yaml")
+    if s.forks is True and len(forks) > 0:
+        typer.echo(f"Scanning {len(forks)} forks for import.yaml", err=True)
 
         with typer.progressbar(forks, label="Scanning: ") as forks_progress:
             for fork in forks_progress:
                 f_owner = fork.source.owner
                 f_name = fork.source.name
-                f_repo = gh.get_repo(f'{f_owner}/{f_name}')
+                f_repo = gh.get_repo(f"{f_owner}/{f_name}")
                 try:
-                    f_yaml = f_repo.get_contents('.snyk.d/import.yaml')
+                    f_yaml = f_repo.get_contents(".snyk.d/import.yaml")
                     import_yamls.append(f_yaml)
                 except:
                     pass
-        
-        typer.echo(f"Have {len(import_yamls)} Repos with an import.yaml")
-        rate_limit.update(True)
+
+        typer.echo(f"Have {len(import_yamls)} Repos with an import.yaml", err=True)
+        rate_limit.update(show_rate_limit)
 
     if len(import_yamls) > 0:
-        typer.echo(f"Scanning repos for import.yaml")
+        typer.echo(f"Scanning repos for import.yaml", err=True)
 
         with typer.progressbar(import_yamls, label="Scanning: ") as import_progress:
             for import_yaml in import_progress:
                 r_yaml = yaml.safe_load(import_yaml.decoded_content)
                 r_url = import_yaml.repository.id
-                #print(r_url)
-                if 'orgName' in r_yaml.keys():
-                    watchlist.get_repo(r_url).org = r_yaml['orgName']
-                
-                if 'tags' in r_yaml.keys():
-                    for k,v in r_yaml['tags'].items():
-                        tmp_tag = {
-                            'key': k,
-                            'value': v
-                        }
+                # print(r_url)
+                if "orgName" in r_yaml.keys():
+                    watchlist.get_repo(r_url).org = r_yaml["orgName"]
+
+                if "tags" in r_yaml.keys():
+                    for k, v in r_yaml["tags"].items():
+                        tmp_tag = {"key": k, "value": v}
                         watchlist.get_repo(r_url).tags.append(Tag.parse_obj(tmp_tag))
 
-    rate_limit.update(True)
+    rate_limit.update(show_rate_limit)
 
     # we are only searching for orgs declared in the snyk-orgs.yaml file
     # this means projects could exist in other snyk orgs we're not watching
-    org_ids = [ s.snyk_orgs[o]['orgId'] for o in s.snyk_orgs ]
+    org_ids = [s.snyk_orgs[o]["orgId"] for o in s.snyk_orgs]
 
-    typer.echo("Scanning Snyk for projects originating from GitHub Repos")
+    typer.echo("Scanning Snyk for projects originating from GitHub Repos", err=True)
     with typer.progressbar(watchlist.repos, label="Scanning: ") as project_progress:
         for r in project_progress:
             for snyk_org in org_ids:
@@ -298,13 +300,12 @@ def sync():
                     r.add_project(Project.parse_obj(p))
 
     watchlist.save(cachedir=str(s.cache_dir))
-    typer.echo("Sync completed")
+    typer.echo("Sync completed", err=True)
 
-    rate_limit.total()
-    typer.echo(f'Total Repos: {len(watchlist.repos)}')
-    
+    if show_rate_limit is True:
+        rate_limit.total()
 
-
+    typer.echo(f"Total Repos: {len(watchlist.repos)}", err=True)
 
 
 @app.command()
@@ -313,11 +314,16 @@ def status():
     Return if the cache is out of date
     """
     global watchlist
+    global s
 
-    typer.echo('Checking cache status')
-    sync_data = jopen(f'{s.cache_dir}/sync.json')
+    if s.force_sync:
+        typer.echo("Sync forced, ignoring cache status", err=True)
+        return False
 
-    last_sync = datetime.strptime(sync_data['last_sync'], "%Y-%m-%dT%H:%M:%S.%f")
+    typer.echo("Checking cache status", err=True)
+    sync_data = jopen(f"{s.cache_dir}/sync.json")
+
+    last_sync = datetime.strptime(sync_data["last_sync"], "%Y-%m-%dT%H:%M:%S.%f")
 
     in_sync = True
 
@@ -326,28 +332,32 @@ def status():
     else:
         timeout = float(str(s.cache_timeout))
 
-    if last_sync < datetime.utcnow()-timedelta(minutes=timeout):
-        typer.echo('Cache is out of date and needs to be updated')
+    if last_sync < datetime.utcnow() - timedelta(minutes=timeout):
+        typer.echo("Cache is out of date and needs to be updated", err=True)
         in_sync = False
     else:
-        typer.echo(f'Cache is less than {s.cache_timeout} minutes old')
+        typer.echo(f"Cache is less than {s.cache_timeout} minutes old", err=True)
 
-    typer.echo('Attempting to load cache')
+    typer.echo("Attempting to load cache", err=True)
     try:
-        cache_data = jopen(f'{s.cache_dir}/data.json')
+        cache_data = jopen(f"{s.cache_dir}/data.json")
         for r in cache_data:
             watchlist.repos.append(Repo.parse_obj(r))
 
     except KeyError as e:
         typer.echo(e)
-    
-    typer.echo('Cache loaded successfully')
+
+    typer.echo("Cache loaded successfully", err=True)
 
     return in_sync
 
 
 @app.command()
-def targets():
+def targets(
+    save_targets: bool = typer.Option(
+        False, "--save", help="Write targets to disk, otherwise print to stdout"
+    )
+):
     """
     Returns valid input for api-import to consume
     """
@@ -356,14 +366,14 @@ def targets():
 
     if status() == False:
         sync()
-    
+
     target_list = []
-     
+
     for r in watchlist.repos:
-        if len(r.projects) == 0 or r.needs_reimport(s.default_org):
-            if r.org != 'default':
-                 org_id = s.snyk_orgs[r.org]['orgId']
-                 int_id = s.snyk_orgs[r.org]['orgId']
+        if len(r.projects) == 0 or r.needs_reimport(s.default_org) is True:
+            if r.org != "default":
+                org_id = s.snyk_orgs[r.org]["orgId"]
+                int_id = s.snyk_orgs[r.org]["integrations"]["github-enterprise"]
             else:
                 org_id = s.default_org_id
                 int_id = s.default_int_id
@@ -371,48 +381,87 @@ def targets():
             target = {
                 "target": r.source.get_target(),
                 "integrationId": int_id,
-                "orgId": org_id
+                "orgId": org_id,
             }
 
             target_list.append(target)
 
+    import_targets = {"targets": target_list}
 
-    print(json.dumps(target_list, indent=2))
+    if save_targets is True:
+        typer.echo(f"Writing targets to {s.targets_file}", err=True)
+        if jwrite(import_targets, s.targets_file):
+            typer.echo("Write Successful", err=True)
+        else:
+            typer.echo("Write Failed", err=True)
+    else:
+        typer.echo(json.dumps(import_targets, indent=2))
 
 
 @app.command()
-def tags():
+def tags(
+    update_tags: bool = typer.Option(
+        False, "--update", help="Updates tags on projects instead of outputting them"
+    ),
+    save_tags: bool = typer.Option(
+        False, "--save", help="Write tags to disk, otherwise print to stdout"
+    ),
+):
     """
     Returns list of project id's and the tags said projects are missing
     """
     global s
     global watchlist
 
-    if status() == False:
+    if status() is False:
         sync()
-    
+
     has_tags = [r for r in watchlist.repos if r.has_tags()]
 
     needs_tags = []
 
     for repo in has_tags:
         for project in repo.projects:
-            missing_tags = project.get_missing_tags(s.default_org, repo.tags)
+            missing_tags = project.get_missing_tags(repo.org, repo.tags)
             if len(missing_tags) > 0:
                 missing_tags = [m.dict() for m in missing_tags]
                 fix_project = {
+                    "org_id": str(project.org_id),
                     "project_id": str(project.id),
-                    "tags": missing_tags
+                    "tags": missing_tags,
                 }
                 needs_tags.append(fix_project)
-    
-    print(json.dumps(needs_tags, indent=2))
-            
+
+    conf_dir = os.path.dirname(str(s.conf))
+
+    # tags should be broken out into it's own module
+
+    if len(needs_tags) > 0:
+        if update_tags is True:
+            typer.echo(f"Updating tags for projects", err=True)
+            client = snyk.SnykClient(str(s.snyk_token))
+            for p in needs_tags:
+                p_path = f"org/{p['org_id']}/project/{p['project_id']}"
+                p_tag_path = f"org/{p['org_id']}/project/{p['project_id']}/tags"
+
+                p_live = json.loads(client.get(p_path).text)
+
+                for tag in p["tags"]:
+                    if tag not in p_live["tags"]:
+                        client.post(p_tag_path, tag)
+                    else:
+                        typer.echo("Tag already updated", err=True)
+        elif save_tags is True:
+            typer.echo(f"Writing tag updates to {conf_dir}/tag-updates.json")
+            if jwrite(needs_tags, f"{conf_dir}/tag-updates.json"):
+                typer.echo("Write Successful", err=True)
+            else:
+                typer.echo("Write Failed", err=True)
+        else:
+            typer.echo(json.dumps(needs_tags, indent=2))
+    else:
+        typer.echo("No projects require tag updates", err=True)
 
 
-
-
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     app()

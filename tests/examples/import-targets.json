@@ -1,0 +1,84 @@
+{
+  "targets": [
+    {
+      "target": {
+        "fork": false,
+        "name": "config-repo",
+        "owner": "snyk-playground",
+        "branch": "main"
+      },
+      "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
+      "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6"
+    },
+    {
+      "target": {
+        "fork": false,
+        "name": "org-project-import",
+        "owner": "snyk-playground",
+        "branch": "main"
+      },
+      "integrationId": "20859d9c-fc25-4c26-9925-2e9356aad608",
+      "orgId": "da450e98-1581-4cd1-a4fc-06a3b76f5004"
+    },
+    {
+      "target": {
+        "fork": false,
+        "name": "webhook-test-repository",
+        "owner": "snyk-playground",
+        "branch": "main"
+      },
+      "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
+      "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6"
+    },
+    {
+      "target": {
+        "fork": true,
+        "name": "goof",
+        "owner": "snyk-playground",
+        "branch": "master"
+      },
+      "integrationId": "20859d9c-fc25-4c26-9925-2e9356aad608",
+      "orgId": "da450e98-1581-4cd1-a4fc-06a3b76f5004"
+    },
+    {
+      "target": {
+        "fork": false,
+        "name": "pygithub-import-parser",
+        "owner": "snyk-playground",
+        "branch": "main"
+      },
+      "integrationId": "20859d9c-fc25-4c26-9925-2e9356aad608",
+      "orgId": "da450e98-1581-4cd1-a4fc-06a3b76f5004"
+    },
+    {
+      "target": {
+        "fork": false,
+        "name": "docs",
+        "owner": "snyk-playground",
+        "branch": "main"
+      },
+      "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
+      "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6"
+    },
+    {
+      "target": {
+        "fork": false,
+        "name": "demo_snyk-transitive-ignore",
+        "owner": "snyk-playground",
+        "branch": "main"
+      },
+      "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
+      "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6"
+    },
+    {
+      "target": {
+        "fork": false,
+        "name": "docker-goof",
+        "owner": "snyk-playground",
+        "branch": "master"
+      },
+      "integrationId": "20859d9c-fc25-4c26-9925-2e9356aad608",
+      "orgId": "da450e98-1581-4cd1-a4fc-06a3b76f5004"
+    }
+  ]
+}
