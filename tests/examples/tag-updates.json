@@ -1,0 +1,37 @@
+[
+  {
+    "project_id": "3dd73cc7-b0b8-4b91-8b21-a714d1da26df",
+    "tags": [
+      {
+        "key": "application",
+        "value": "example"
+      },
+      {
+        "key": "team",
+        "value": "cse"
+      }
+    ]
+  },
+  {
+    "project_id": "381d61af-db4b-4d63-a2cf-304808cbc060",
+    "tags": [
+      {
+        "key": "application",
+        "value": "example"
+      },
+      {
+        "key": "team",
+        "value": "cse"
+      }
+    ]
+  },
+  {
+    "project_id": "62d9c881-76b6-49bb-bef8-cc32a6cb41db",
+    "tags": [
+      {
+        "key": "application",
+        "value": "example"
+      }
+    ]
+  }
+]

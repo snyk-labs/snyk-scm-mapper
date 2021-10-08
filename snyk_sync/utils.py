@@ -14,6 +14,13 @@ def jopen(filename):
         data = the_file.read()
     return json.loads(data)
 
+def jwrite(data, filename):
+    try:
+        with open(filename, "w") as the_file:
+            the_file.write(json.dumps(data, indent=2))
+            return True
+    except:
+        return False
 
 def yopen(filename):
     with open(filename, "r") as the_file:
@@ -58,7 +65,7 @@ class RateLimit:
         self.core_calls.append(core_call)
         self.search_calls.append(search_call)
 
-        if display:
+        if display is True:
             core_diff = self.core_calls[-1] - self.core_calls[-2]
             search_diff = self.search_calls[-1] - self.search_calls[-2]
             print(f'GH RateLimit: Core Calls = {core_diff}')

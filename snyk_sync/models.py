@@ -90,6 +90,7 @@ class Project(BaseModel):
     is_monitored: bool = Field(alias="isMonitored")
     org_id: UUID4
     org_name: str
+    origin: str
 
     def match(self, **kwargs):
         valid_keys = {x: y for x, y in kwargs.items() if x in self.__dict__}
@@ -102,12 +103,14 @@ class Project(BaseModel):
         # print(matches)
         return matches > 0
     
-    def get_missing_tags(self, repo_org, tags):
-
-        # bomb out early and say there's no need for tags if this project is an orphan
+    def get_missing_tags(self, repo_org: str, tags: List[Tag]):
+        """
+        Returns a list of missing tags from a project. This assumes we only want tags managed on projects that are in the snyk org the parent repo's .snyk.d/import.yaml defines
+        Because of how the snyk tag API works, you can have duplicate values for tags (user=foo, user=bar), so we can create duplicate tags key's here, but currently we're not support overwriting or pruning existing tags on a project
+        """
         if repo_org != self.org_name:
             return []
-
+        
         return [ i for i in tags if i not in self.tags ]
             
 
@@ -196,7 +199,7 @@ class Settings(BaseModel):
     cache_dir: Optional[Path]
     conf: Optional[Path]
     targets_file: Optional[Path]
-    snyk_orgs: Optional[Dict]
+    snyk_orgs: Dict = dict()
     snyk_orgs_file: Optional[Path]
     default_org: Optional[str]
     default_int: Optional[str]
@@ -205,9 +208,10 @@ class Settings(BaseModel):
     snyk_group: Optional[UUID4]
     snyk_token: Optional[UUID4]
     github_token: Optional[str]
-    github_orgs: Optional[List[str]]
+    github_orgs: List[str] = list()
     cache_timeout: Optional[float]
     forks: bool = False
+    force_sync: bool = False
 
     def __getitem__(self, item):
         return getattr(self, item)

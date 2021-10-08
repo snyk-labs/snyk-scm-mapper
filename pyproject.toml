@@ -8,9 +8,9 @@ authors = ["Chris Barker <chris.barker@snyk.io>"]
 python = "^3.9"
 pysnyk = "^0.6.2"
 PyGithub = "^1.55"
-click = "^7.1.1"
+click = "^8.0.1"
 pydantic = "^1.8.2"
-typer = "^0.3.2"
+typer = "^0.4.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
