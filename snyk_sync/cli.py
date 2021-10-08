@@ -34,27 +34,27 @@ def main(
         readable=True,
         resolve_path=True,
         help="Cache location",
-        envvar="SNYK_WATCHER_CACHE_DIR",
+        envvar="SNYK_SYNC_CACHE_DIR",
     ),
     cache_timeout: int = typer.Option(
         default=60,
         help="Maximum cache age, in minutes",
-        envvar="SNYK_WATCHER_CACHE_TIMEOUT",
+        envvar="SNYK_SYNC_CACHE_TIMEOUT",
     ),
     forks: bool = typer.Option(
         default=False,
         help="Check forks for import.yaml files",
-        envvar="SNYK_WATCHER_FORKS",
+        envvar="SNYK_SYNC_FORKS",
     ),
     conf: Path = typer.Option(
-        default="snyk_watcher.yaml",
+        default="snyk-sync.yaml",
         exists=True,
         file_okay=True,
         dir_okay=False,
         writable=False,
         readable=True,
         resolve_path=True,
-        envvar="SNYK_WATCHER_CONFIG",
+        envvar="SNYK_SYNC_CONFIG",
     ),
     targets_file: Optional[Path] = typer.Option(
         default=None,
@@ -64,7 +64,7 @@ def main(
         writable=True,
         readable=True,
         resolve_path=True,
-        envvar="SNYK_WATCHER_TARGETS_FILE",
+        envvar="SNYK_SYNC_TARGETS_FILE",
     ),
     snyk_orgs_file: Optional[Path] = typer.Option(
         default=None,
@@ -75,22 +75,22 @@ def main(
         readable=True,
         resolve_path=True,
         help="Snyk orgs to watch",
-        envvar="SNYK_WATCHER_SNYK_ORGS",
+        envvar="SNYK_SYNC_ORGS",
     ),
     default_org: str = typer.Option(
         default=None,
         help="Default Snyk Org to use from Orgs file.",
-        envvar="SNYK_WATCHER_DEFAULT_ORG",
+        envvar="SNYK_SYNC_DEFAULT_ORG",
     ),
     default_int: str = typer.Option(
         default=None,
         help="Default Snyk Integration to use with Default Org.",
-        envvar="SNYK_WATCHER_DEFAULT_INT",
+        envvar="SNYK_SYNC_DEFAULT_INT",
     ),
     snyk_group: UUID = typer.Option(
         ...,
         help="Group ID, required but will scrape from ENV",
-        envvar="SNYK_GROUP",
+        envvar="SNYK_SYNC_GROUP",
     ),
     snyk_token: UUID = typer.Option(
         ...,
@@ -321,7 +321,11 @@ def status():
         return False
 
     typer.echo("Checking cache status", err=True)
-    sync_data = jopen(f"{s.cache_dir}/sync.json")
+
+    if os.path.exists(f"{s.cache_dir}/sync.json"):
+        sync_data = jopen(f"{s.cache_dir}/sync.json")
+    else:
+        return False
 
     last_sync = datetime.strptime(sync_data["last_sync"], "%Y-%m-%dT%H:%M:%S.%f")
 
