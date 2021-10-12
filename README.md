@@ -97,7 +97,12 @@ Options:
 
 ### Container Build Steps
 
-`docker build --force-rm -f Dockerfile -t snyk-sync:latest .`
+This pushes to GitHub's [container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
+
+```
+docker build --force-rm -f Dockerfile -t ghcr.io/snyk-playground/snyk-sync:latest .
+docker push ghcr.io/snyk-playground/snyk-sync:latest
+```
 
 ### Container Run Steps
 
