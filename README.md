@@ -22,7 +22,7 @@ If one has a large organization with many hundreds or thousands of repositories,
 
 ## Setup
 
-Snyk Sync expects a `GITHUB_TOKEN`, `SNYK_TOKEN`, `SNYK_SYNC_GROUP` environment variables to be present, along with a snyk-sync.yaml file, snyk-orgs.yaml file, and a folder to store the cache in (it will not create this folder). See the [example](/example) directory for a starting point.
+Snyk Sync expects a `GITHUB_TOKEN` and `SNYK_TOKEN` environment variables to be present, along with a snyk-sync.yaml file, snyk-orgs.yaml file, and a folder to store the cache in (it will not create this folder). See the [example](/example) directory for a starting point.
 ```
 example
 ├── cache
@@ -32,7 +32,33 @@ example
 
 - GITHUB_TOKEN: this access token must have read access to all repositories in all GitHub organizations one wishes to import
 - SNYK_TOKEN: this should be a group level service account that has admin access to create new projects and tag them
-- SNYK_SYNC_GROUP: This is the specific group in Snyk where all organizations and integrations should be present. Support of multiple groups is not planned for Snyk Sync. If that is desired, multiple Snyk Sync configurations can be used (assuming the github organizations being scanned do not overlap)
+
+Minimum snyk-sync.yaml contents:
+```
+---
+schema: 1
+github_orgs: 
+  - <<Name of GitHub Org>>
+snyk:
+  group: <<Group ID from Snyk>>
+default:
+  orgName: ie-playground
+  integrationName: github-enterprise
+```
+
+Example minimum snyk-orgs.yaml:
+```
+---
+ie-playground:
+  orgId: 39ddc762-b1b9-41ce-ab42-defbe4575bd6
+  integrations:
+    github-enterprise: b87e1473-37ab-4f09-a4e3-a0139a50e81e
+```
+To get the Organization ID, navigate to the settings page of the organization in question
+`https://app.snyk.io/org/<org-name>/manage/settings`
+
+To get the GitHub Enterprise integration ID (currently the GitHub Enterprise integration is the only supported integration for snyk sync, but it can be used with a GitHub.com Org as well) navigate to:
+`https://app.snyk.io/org/<org-name>/manage/integrations/github-enterprise`
 
 
 ### Help
@@ -107,6 +133,5 @@ docker push ghcr.io/snyk-playground/snyk-sync:latest
 ### Container Run Steps
 
 ```
-docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN -e SNYK_SYNC_GROUP:$SNYK_GROUP -v "${PWD}/conf":/app/conf mrzarquon/snyk-sync \
---conf conf/snyk_sync.yaml --cache-dir conf/cache --sync target
+docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN -v "${PWD}":/runtime ghcr.io/snyk-playground/snyk-sync:latest --sync target
 ```

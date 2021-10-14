@@ -4,8 +4,15 @@ FROM python:3.9-slim AS requirements
 
 ENV PYTHONDONTWRITEBYTECODE 1
 
+# Add jq and curl
+
+RUN apt update && apt install -y jq curl
+
 # step one is to create a container with poetry on it
 RUN python -m pip install --quiet -U pip poetry
+
+COPY scripts/install_snyk_tools.sh ./install_snyk_tools.sh
+RUN /bin/bash ./install_snyk_tools.sh
 
 WORKDIR /src
 
@@ -20,6 +27,9 @@ FROM python:3.9-slim AS runtime
 
 WORKDIR /app
 
+COPY --from=requirements /usr/local/bin/snyk /usr/local/bin/snyk
+COPY --from=requirements /usr/local/bin/snyk-api-import /usr/local/bin/snyk-api-import
+
 # copy stuff from this repo into the /app directory of the container
 COPY snyk_sync/ ./snyk_sync/
 
@@ -30,6 +40,11 @@ COPY --from=requirements /src/requirements.txt .
 RUN python -m pip install --quiet -U pip
 RUN pip install --quiet -r requirements.txt
 
-COPY entrypoint.sh /usr/local/bin/
+COPY scripts/entrypoint.sh /usr/local/bin/
+COPY scripts/entrypoint-api-import.sh /usr/local/bin/
+
+RUN chmod +x /usr/local/bin/*
+
+WORKDIR /runtime
 
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
