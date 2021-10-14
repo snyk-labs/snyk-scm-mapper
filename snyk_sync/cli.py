@@ -6,6 +6,9 @@ import json
 import yaml
 import snyk
 
+
+from __version__ import __version__
+
 from pathlib import Path
 from github import Github, Repository
 from datetime import datetime, timedelta
@@ -25,8 +28,8 @@ watchlist = SnykWatchList()
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    cache_dir: Path = typer.Option(
-        default="cache",
+    cache_dir: Optional[Path] = typer.Option(
+        default=None,
         exists=True,
         file_okay=False,
         dir_okay=True,
@@ -88,7 +91,7 @@ def main(
         envvar="SNYK_SYNC_DEFAULT_INT",
     ),
     snyk_group: UUID = typer.Option(
-        ...,
+        default=None,
         help="Group ID, required but will scrape from ENV",
         envvar="SNYK_SYNC_GROUP",
     ),
@@ -123,13 +126,31 @@ def main(
     s = Settings.parse_obj(vars())
 
     conf_dir = os.path.dirname(str(s.conf))
+    
     conf_file = yopen(s.conf)
 
     if s.targets_file is None:
-        s.targets_file = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
+        if "targets_file_name" in conf_file:
+            s.targets_file = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
+        else:
+            s.targets_file = Path(f'{conf_dir}/import-targets.json')
+    
+    if s.cache_dir is None:
+        if "cache_dir" in conf_file:
+            s.cache_dir = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
+        else:
+            s.cache_dir = Path(f'{conf_dir}/cache')
+    
+    if not s.cache_dir.exists() and not s.cache_dir.is_dir():
+        s.cache_dir.mkdir()
+    elif not s.cache_dir.is_dir():
+        typer.Abort(f"{s.cache_dir.name} is not a directory")
 
     if s.snyk_orgs_file is None:
-        s.snyk_orgs_file = Path(f'{conf_dir}/{conf_file["orgs_file"]}')
+        if "orgs_file" in conf_file:
+            s.snyk_orgs_file = Path(f'{conf_dir}/{conf_file["orgs_file"]}')
+        else:
+            s.snyk_orgs_file = Path(f'{conf_dir}/snyk-orgs.yaml')
 
     s.github_orgs = conf_file["github_orgs"]
 
@@ -138,6 +159,9 @@ def main(
 
     if s.default_int is None:
         s.default_int = conf_file["default"]["integrationName"]
+    
+    if s.snyk_group is None:
+        s.snyk_group = conf_file["snyk"]["group"]
 
     s.snyk_orgs = yopen(s.snyk_orgs_file)
 
@@ -174,7 +198,7 @@ def sync(
 
     rate_limit = RateLimit(gh)
 
-    client = snyk.SnykClient(str(s.snyk_token))
+    client = snyk.SnykClient(str(s.snyk_token),user_agent=f"pysnyk/snyk_services/sync/{__version__}")
 
     if s.github_orgs is not None:
         gh_orgs = list(s.github_orgs)
