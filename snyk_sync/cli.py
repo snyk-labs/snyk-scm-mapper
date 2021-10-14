@@ -491,5 +491,50 @@ def tags(
         typer.echo("No projects require tag updates", err=True)
 
 
+@app.command()
+def autoconf(snykorg: str = typer.Argument(..., help="The Snyk Org Slug to use"),
+    githuborg: str = typer.Argument(..., help="The Github Org to use")
+):
+    """
+    Autogenerates a configuration template given an orgname
+
+    This requires an existing snyk-sync.yaml and snyk-orgs.yaml, which it will overwrite
+    """
+    global s
+
+    client = snyk.SnykClient(str(s.snyk_token),user_agent=f"pysnyk/snyk_services/sync/{__version__}")
+
+    conf = dict()
+    conf['schema'] = 1
+    conf['github_orgs'] = [str(githuborg)]
+    conf['snyk'] = dict()
+    conf['snyk']['group'] = None
+    conf['default'] = dict()
+    conf['default']['orgName'] = snykorg
+    conf['default']['integrationName'] = 'github-enterprise'
+
+    orgs = json.loads(client.get('orgs').text)
+    
+    my_org = [o for o in orgs['orgs'] if o['slug'] == snykorg ][0]
+
+    my_group_id = my_org['group']['id']
+
+    group_orgs = json.loads(client.get(f'group/{my_group_id}/orgs').text)['orgs']
+
+    snyk_orgs = dict()
+    for org in group_orgs:
+        org_int = json.loads(client.get(f"org/{org['id']}/integrations").text)
+
+        if 'github-enterprise' in org_int:
+            snyk_orgs[org['slug']] = dict()
+            snyk_orgs[org['slug']]['orgId'] = org['id']
+            snyk_orgs[org['slug']]['integrations'] = org_int
+
+    s.conf.write_text(yaml.safe_dump(conf))
+    s.snyk_orgs_file.write_text(yaml.safe_dump(snyk_orgs))
+    
+
+
+
 if __name__ == "__main__":
     app()
