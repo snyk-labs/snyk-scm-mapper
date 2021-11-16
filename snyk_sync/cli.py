@@ -211,7 +211,7 @@ def sync(
     with typer.progressbar(gh_orgs, label="Processing: ") as gh_progress:
         for gh_org_name in gh_progress:
             gh_org = gh.get_organization(gh_org_name)
-            gh_repos = gh_org.get_repos(type="all", sort="updated", order="desc")
+            gh_repos = gh_org.get_repos(type="all", sort="updated", direction="desc")
             for gh_repo in gh_repos:
                 # print(watchlist.has_repo(gh_repo.id))
                 if watchlist.has_repo(gh_repo.id) == False:
