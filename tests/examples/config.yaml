@@ -1,6 +1,6 @@
 ---
 schema: 1
-github_orgs: 
+github_orgs:
   - snyk-playground
 orgs_file: snyk-orgs.yaml
 targets_file_name: data/import-targets.json

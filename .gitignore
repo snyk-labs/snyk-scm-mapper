@@ -1,6 +1,6 @@
-*__pycache__*
-*.venv
-conf/cache/*
-.shell_env
 .dccache
-tests/examples/import_logs/
+.shell_env
+.venv
+__pycache__
+import_logs
+cache

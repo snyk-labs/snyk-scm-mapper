@@ -100,9 +100,7 @@ def main(
         help="Snyk access token",
         envvar="SNYK_TOKEN",
     ),
-    force_sync: bool = typer.Option(
-        False, "--sync", help="Forces a sync regardless of cache status"
-    ),
+    force_sync: bool = typer.Option(False, "--sync", help="Forces a sync regardless of cache status"),
     github_token: str = typer.Option(
         ...,
         help="GitHub access token",
@@ -126,21 +124,21 @@ def main(
     s = Settings.parse_obj(vars())
 
     conf_dir = os.path.dirname(str(s.conf))
-    
+
     conf_file = yopen(s.conf)
 
     if s.targets_file is None:
         if "targets_file_name" in conf_file:
             s.targets_file = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
         else:
-            s.targets_file = Path(f'{conf_dir}/import-targets.json')
-    
+            s.targets_file = Path(f"{conf_dir}/import-targets.json")
+
     if s.cache_dir is None:
         if "cache_dir" in conf_file:
             s.cache_dir = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
         else:
-            s.cache_dir = Path(f'{conf_dir}/cache')
-    
+            s.cache_dir = Path(f"{conf_dir}/cache")
+
     if not s.cache_dir.exists() and not s.cache_dir.is_dir():
         s.cache_dir.mkdir()
     elif not s.cache_dir.is_dir():
@@ -150,7 +148,7 @@ def main(
         if "orgs_file" in conf_file:
             s.snyk_orgs_file = Path(f'{conf_dir}/{conf_file["orgs_file"]}')
         else:
-            s.snyk_orgs_file = Path(f'{conf_dir}/snyk-orgs.yaml')
+            s.snyk_orgs_file = Path(f"{conf_dir}/snyk-orgs.yaml")
 
     s.github_orgs = conf_file["github_orgs"]
 
@@ -159,7 +157,7 @@ def main(
 
     if s.default_int is None:
         s.default_int = conf_file["default"]["integrationName"]
-    
+
     if s.snyk_group is None:
         s.snyk_group = conf_file["snyk"]["group"]
 
@@ -194,11 +192,11 @@ def sync(
     # flush the watchlist
     # watchlist = SnykWatchList()
 
-    gh = Github(s.github_token)
+    gh = Github(s.github_token, per_page=100)
 
     rate_limit = RateLimit(gh)
 
-    client = snyk.SnykClient(str(s.snyk_token),user_agent=f"pysnyk/snyk_services/sync/{__version__}")
+    client = snyk.SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
 
     if s.github_orgs is not None:
         gh_orgs = list(s.github_orgs)
@@ -211,8 +209,9 @@ def sync(
 
     typer.echo("Getting all GitHub repos", err=True)
     with typer.progressbar(gh_orgs, label="Processing: ") as gh_progress:
-        for gh_org in gh_progress:
-            gh_repos = gh.search_repositories(f"org:{gh_org} fork:true")
+        for gh_org_name in gh_progress:
+            gh_org = gh.get_organization(gh_org_name)
+            gh_repos = gh_org.get_repos(type="all", sort="updated", order="desc")
             for gh_repo in gh_repos:
                 # print(watchlist.has_repo(gh_repo.id))
                 if watchlist.has_repo(gh_repo.id) == False:
@@ -234,9 +233,7 @@ def sync(
                     )
                     watchlist.repos.append(tmp_target)
 
-                elif newer(
-                    watchlist.get_repo(gh_repo.id).updated_at, str(gh_repo.updated_at)
-                ):
+                elif newer(watchlist.get_repo(gh_repo.id).updated_at, str(gh_repo.updated_at)):
                     tmp_repo = {
                         "fork": gh_repo.fork,
                         "name": gh_repo.name,
@@ -258,10 +255,10 @@ def sync(
 
     import_yamls = []
     for gh_org in gh_orgs:
-        search = f"org:{gh_org} path:.snyk.d"
+        search = f"org:{gh_org} path:.snyk.d filename:import language:yaml"
         import_repos = gh.search_code(query=search)
-        import_repos = [y for y in import_repos if y.repository.id not in exclude_list]
-        import_yamls.extend([y for y in import_repos if y.name == "import.yaml"])
+        import_repos = [y for y in import_repos if y.repository.id not in exclude_list and y.name == "import.yaml"]
+        import_yamls.extend(import_repos)
 
     rate_limit.update(show_rate_limit)
 
@@ -310,14 +307,18 @@ def sync(
     # this means projects could exist in other snyk orgs we're not watching
     org_ids = [s.snyk_orgs[o]["orgId"] for o in s.snyk_orgs]
 
+    # we want to get the visible list of orgs
+
+    visible_orgs = [o.id for o in client.organizations.all()]
+
+    org_ids = [o for o in org_ids if o in visible_orgs]
+
     typer.echo("Scanning Snyk for projects originating from GitHub Repos", err=True)
     with typer.progressbar(watchlist.repos, label="Scanning: ") as project_progress:
         for r in project_progress:
             for snyk_org in org_ids:
                 # print(r.source.project_base)
-                p_resp = search_projects(
-                    r.source.project_base, str(s.default_int), client, snyk_org
-                )
+                p_resp = search_projects(r.source.project_base, str(s.default_int), client, snyk_org)
                 for p in p_resp["projects"]:
                     p["org_id"] = p_resp["org"]["id"]
                     p["org_name"] = p_resp["org"]["name"]
@@ -382,9 +383,7 @@ def status():
 
 @app.command()
 def targets(
-    save_targets: bool = typer.Option(
-        False, "--save", help="Write targets to disk, otherwise print to stdout"
-    )
+    save_targets: bool = typer.Option(False, "--save", help="Write targets to disk, otherwise print to stdout")
 ):
     """
     Returns valid input for api-import to consume
@@ -428,12 +427,8 @@ def targets(
 
 @app.command()
 def tags(
-    update_tags: bool = typer.Option(
-        False, "--update", help="Updates tags on projects instead of outputting them"
-    ),
-    save_tags: bool = typer.Option(
-        False, "--save", help="Write tags to disk, otherwise print to stdout"
-    ),
+    update_tags: bool = typer.Option(False, "--update", help="Updates tags on projects instead of outputting them"),
+    save_tags: bool = typer.Option(False, "--save", help="Write tags to disk, otherwise print to stdout"),
 ):
     """
     Returns list of project id's and the tags said projects are missing
@@ -492,8 +487,9 @@ def tags(
 
 
 @app.command()
-def autoconf(snykorg: str = typer.Argument(..., help="The Snyk Org Slug to use"),
-    githuborg: str = typer.Argument(..., help="The Github Org to use")
+def autoconf(
+    snykorg: str = typer.Argument(..., help="The Snyk Org Slug to use"),
+    githuborg: str = typer.Argument(..., help="The Github Org to use"),
 ):
     """
     Autogenerates a configuration template given an orgname
@@ -502,38 +498,36 @@ def autoconf(snykorg: str = typer.Argument(..., help="The Snyk Org Slug to use")
     """
     global s
 
-    client = snyk.SnykClient(str(s.snyk_token),user_agent=f"pysnyk/snyk_services/sync/{__version__}")
+    client = snyk.SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
 
     conf = dict()
-    conf['schema'] = 1
-    conf['github_orgs'] = [str(githuborg)]
-    conf['snyk'] = dict()
-    conf['snyk']['group'] = None
-    conf['default'] = dict()
-    conf['default']['orgName'] = snykorg
-    conf['default']['integrationName'] = 'github-enterprise'
+    conf["schema"] = 1
+    conf["github_orgs"] = [str(githuborg)]
+    conf["snyk"] = dict()
+    conf["snyk"]["group"] = None
+    conf["default"] = dict()
+    conf["default"]["orgName"] = snykorg
+    conf["default"]["integrationName"] = "github-enterprise"
 
-    orgs = json.loads(client.get('orgs').text)
-    
-    my_org = [o for o in orgs['orgs'] if o['slug'] == snykorg ][0]
+    orgs = json.loads(client.get("orgs").text)
 
-    my_group_id = my_org['group']['id']
+    my_org = [o for o in orgs["orgs"] if o["slug"] == snykorg][0]
 
-    group_orgs = json.loads(client.get(f'group/{my_group_id}/orgs').text)['orgs']
+    my_group_id = my_org["group"]["id"]
+
+    group_orgs = json.loads(client.get(f"group/{my_group_id}/orgs").text)["orgs"]
 
     snyk_orgs = dict()
     for org in group_orgs:
         org_int = json.loads(client.get(f"org/{org['id']}/integrations").text)
 
-        if 'github-enterprise' in org_int:
-            snyk_orgs[org['slug']] = dict()
-            snyk_orgs[org['slug']]['orgId'] = org['id']
-            snyk_orgs[org['slug']]['integrations'] = org_int
+        if "github-enterprise" in org_int:
+            snyk_orgs[org["slug"]] = dict()
+            snyk_orgs[org["slug"]]["orgId"] = org["id"]
+            snyk_orgs[org["slug"]]["integrations"] = org_int
 
     s.conf.write_text(yaml.safe_dump(conf))
     s.snyk_orgs_file.write_text(yaml.safe_dump(snyk_orgs))
-    
-
 
 
 if __name__ == "__main__":

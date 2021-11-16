@@ -16,6 +16,7 @@ from pydantic import BaseModel, FilePath, ValidationError, root_validator, UUID4
 
 from utils import newer
 
+
 class Org(BaseModel):
     orgId: UUID4
     integrations: Dict[str, UUID4]
@@ -64,12 +65,7 @@ class Source(BaseModel):
     project_base: str
 
     def get_target(self):
-        target = {
-                "fork": self.fork,
-                "name": self.name,
-                "owner": self.owner,
-                "branch": self.branch
-            }
+        target = {"fork": self.fork, "name": self.name, "owner": self.owner, "branch": self.branch}
 
         return target
 
@@ -77,6 +73,7 @@ class Source(BaseModel):
 class Tag(BaseModel):
     key: str
     value: str
+
 
 class Project(BaseModel):
     id: UUID4
@@ -102,7 +99,7 @@ class Project(BaseModel):
                     matches += 1
         # print(matches)
         return matches > 0
-    
+
     def get_missing_tags(self, repo_org: str, tags: List[Tag]):
         """
         Returns a list of missing tags from a project. This assumes we only want tags managed on projects that are in the snyk org the parent repo's .snyk.d/import.yaml defines
@@ -110,9 +107,8 @@ class Project(BaseModel):
         """
         if repo_org != self.org_name:
             return []
-        
-        return [ i for i in tags if i not in self.tags ]
-            
+
+        return [i for i in tags if i not in self.tags]
 
 
 class Repo(BaseModel):
@@ -120,20 +116,19 @@ class Repo(BaseModel):
     source: Source
     id: int
     updated_at: str
-    import_sha: str = ''
+    import_sha: str = ""
     projects: List[Project] = []
     tags: List[Tag] = []
-    org: str = 'default'
+    org: str = "default"
 
     def needs_reimport(self, default_org):
         """
         Returns true if there are no projects in associated with the org that has been assigned to this repo
         """
-        if self.org == 'default':
+        if self.org == "default":
             org_name = default_org
         else:
             org_name = self.org
-
 
         matching = [p for p in self.projects if p.org_name == org_name]
 
@@ -141,10 +136,10 @@ class Repo(BaseModel):
 
     def has_tags(self):
         return len(self.tags) > 0
-    
+
     def fork(self):
         return self.source.fork
-    
+
     def get_project(self, id) -> Project:
 
         filter_repo = [r for r in self.projects if r.id == id]
@@ -154,7 +149,7 @@ class Repo(BaseModel):
     def has_project(self, id) -> bool:
 
         filter_repo = [r for r in self.projects if r.id == id]
-        
+
         return bool(len(filter_repo))
 
     def add_project(self, project: Project):
@@ -166,7 +161,6 @@ class Repo(BaseModel):
 
         else:
             self.projects.append(project)
-
 
     def match(self, **kwargs):
         valid_keys = {x: y for x, y in kwargs.items() if x in self.source.__dict__}
@@ -182,9 +176,7 @@ class Repo(BaseModel):
         project_attributes = 0
 
         for project in self.projects:
-            project_attributes = len(
-                [x for x, y in kwargs.items() if x in project.__dict__]
-            )
+            project_attributes = len([x for x, y in kwargs.items() if x in project.__dict__])
             if project.match(**kwargs):
                 project_matches += 1
 
@@ -194,6 +186,7 @@ class Repo(BaseModel):
             matches_projects = True
 
         return matches == len(valid_keys) and matches_projects
+
 
 class Settings(BaseModel):
     cache_dir: Optional[Path]
@@ -215,7 +208,7 @@ class Settings(BaseModel):
 
     def __getitem__(self, item):
         return getattr(self, item)
-    
+
     def __setitem__(self, item, value):
         return setattr(self, item, value)
 
@@ -231,17 +224,17 @@ class SnykWatchList(BaseModel):
                 data.append(repo)
 
         return data
-    
+
     def get_repo(self, id) -> Repo:
 
         filter_repo = [r for r in self.repos if r.id == id]
 
         return filter_repo[0]
-    
+
     def has_repo(self, id) -> bool:
 
         filter_repo = [r for r in self.repos if r.id == id]
-        
+
         return bool(len(filter_repo))
 
     def save(self, cachedir):
@@ -256,8 +249,6 @@ class SnykWatchList(BaseModel):
             json.dump(state, the_file, indent=4)
 
 
-
 class RateLimit(BaseModel):
     core: dict
     search: dict
-
