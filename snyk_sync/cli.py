@@ -275,6 +275,8 @@ def sync(
                 try:
                     f_yaml = f_repo.get_contents(".snyk.d/import.yaml")
                     watchlist.get_repo(f_repo.id).parse_import(f_yaml, instance=s.instance)
+                except:
+                    pass
 
         typer.echo(f"Have {len(import_yamls)} Repos with an import.yaml", err=True)
         rate_limit.update(show_rate_limit)
