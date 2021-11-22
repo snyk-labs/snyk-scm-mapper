@@ -101,6 +101,11 @@ def main(
         help="Default Snyk Integration to use with Default Org.",
         envvar="SNYK_SYNC_DEFAULT_INT",
     ),
+    instance: str = typer.Option(
+        default=None,
+        help="Default Snyk Integration to use with Default Org.",
+        envvar="SNYK_SYNC_INSTANCE",
+    ),
     snyk_group: UUID = typer.Option(
         default=None,
         help="Group ID, required but will scrape from ENV",
@@ -172,6 +177,10 @@ def main(
     if s.snyk_groups is None:
         s.snyk_groups = conf_file["snyk"]["groups"]
 
+    if s.instance is None:
+        if "instance" in conf_file.keys():
+            s.instance = conf_file["instance"]
+
     s.snyk_orgs = yopen(s.snyk_orgs_file)
 
     s.default_org_id = s.snyk_orgs[s.default_org]["orgId"]
@@ -232,7 +241,6 @@ def sync(
         gh_repos_count = gh_repos.totalCount
         with typer.progressbar(length=gh_repos_count, label=f"Processing {gh_org_name}: ") as gh_progress:
             for gh_repo in gh_repos:
-                # print(watchlist.has_repo(gh_repo.id))
 
                 watchlist.add_repo(gh_repo)
 
@@ -266,9 +274,7 @@ def sync(
                 f_repo = gh.get_repo(f"{f_owner}/{f_name}")
                 try:
                     f_yaml = f_repo.get_contents(".snyk.d/import.yaml")
-                    watchlist.get_repo(f_repo.id).parse_import(f_yaml)
-                except:
-                    pass
+                    watchlist.get_repo(f_repo.id).parse_import(f_yaml, instance=s.instance)
 
         typer.echo(f"Have {len(import_yamls)} Repos with an import.yaml", err=True)
         rate_limit.update(show_rate_limit)
@@ -283,12 +289,13 @@ def sync(
 
                 import_repo = watchlist.get_repo(r_id)
 
-                import_repo.parse_import(import_yaml)
+
+                import_repo.parse_import(import_yaml, instance=s.instance)
+
 
     rate_limit.update(show_rate_limit)
 
     # this calls our new Orgs object which caches and populates Snyk data locally for us
-
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
     select_orgs = [str(o["orgId"]) for k, o in s.snyk_orgs.items()]
@@ -302,7 +309,6 @@ def sync(
     typer.echo("Scanning Snyk for projects originating from GitHub Enterprise Repos", err=True)
     for r in watchlist.repos:
         found_projects = all_orgs.find_projects_by_repo(r.full_name, r.id)
-
         for p in found_projects:
             r.add_project(p)
 
@@ -387,13 +393,18 @@ def targets(
                 org_id = s.default_org_id
                 int_id = s.default_int_id
 
-            target = {
-                "target": r.source.get_target(),
-                "integrationId": int_id,
-                "orgId": org_id,
-            }
+            for branch in r.branches:
+                source = r.source.get_target()
 
-            target_list.append(target)
+                source["branch"] = branch
+
+                target = {
+                    "target": source,
+                    "integrationId": int_id,
+                    "orgId": org_id,
+                }
+
+                target_list.append(target)
 
     import_targets = {"targets": target_list}
 

@@ -222,8 +222,14 @@ class Repo(BaseModel):
 
         return matches == len(valid_keys) and matches_projects
 
-    def parse_import(self, import_yaml: ContentFile):
-        r_yaml = yaml.safe_load(import_yaml.decoded_content)
+    def parse_import(self, import_yaml: ContentFile.ContentFile, instance: str = None):
+        r_yaml = dict()
+        r_yaml.update(yaml.safe_load(import_yaml.decoded_content))
+
+        if "instance" in r_yaml.keys():
+            if instance in r_yaml["instance"].keys():
+                override = r_yaml["instance"].pop(instance)
+                r_yaml.update(override)
 
         self.import_sha = import_yaml.sha
 
@@ -235,6 +241,9 @@ class Repo(BaseModel):
             for k, v in r_yaml["tags"].items():
                 tmp_tag = {"key": k, "value": v}
                 self.tags.append(Tag.parse_obj(tmp_tag))
+
+        if "branches" in r_yaml.keys():
+            self.branches = r_yaml["branches"]
 
     def is_older(self, timestamp) -> bool:
 
