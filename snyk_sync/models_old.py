@@ -88,6 +88,9 @@ class Project(BaseModel):
     org_id: UUID4
     org_name: str
     origin: str
+    target: UUID4
+    repo_name: str = ""
+    repo_id: int = None
 
     def match(self, **kwargs):
         valid_keys = {x: y for x, y in kwargs.items() if x in self.__dict__}

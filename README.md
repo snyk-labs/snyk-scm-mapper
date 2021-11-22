@@ -173,3 +173,7 @@ API calls for searching for import.yaml
         Filtering the list of import.yaml matches for snyk-playground
                 Core Cost: 0    Search Cost: 1
 ```
+
+docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN \
+-e REQUESTS_CA_BUNDLE=/runtime/massmutual.pem -v "${PWD}":/runtime \
+ghcr.io/snyk-playground/snyk-sync:latest --sync targets --save

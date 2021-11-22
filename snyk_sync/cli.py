@@ -5,9 +5,13 @@ import os
 import json
 import yaml
 import snyk
+import api
+import logging
 
 
 from __version__ import __version__
+
+from os import environ
 
 from pathlib import Path
 from github import Github, Repository
@@ -15,7 +19,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from models import SnykWatchList, Repo, Project, Settings, Tag
+from models.repositories import Repo, Project, Tag
+from models.sync import SnykWatchList, Settings
+from models.organizations import Orgs, Org, Target
+
 from utils import yopen, jopen, search_projects, RateLimit, newer, jwrite
 
 app = typer.Typer(add_completion=False)
@@ -23,6 +30,10 @@ app = typer.Typer(add_completion=False)
 s = Settings()
 
 watchlist = SnykWatchList()
+
+# DEBUG_LEVEL = environ["SNYK_SYNC_DEBUG_LEVEL"] or "INFO"
+
+logging.basicConfig(level="INFO")
 
 
 @app.callback(invoke_without_command=True)
@@ -158,8 +169,8 @@ def main(
     if s.default_int is None:
         s.default_int = conf_file["default"]["integrationName"]
 
-    if s.snyk_group is None:
-        s.snyk_group = conf_file["snyk"]["group"]
+    if s.snyk_groups is None:
+        s.snyk_groups = conf_file["snyk"]["groups"]
 
     s.snyk_orgs = yopen(s.snyk_orgs_file)
 
@@ -192,11 +203,17 @@ def sync(
     # flush the watchlist
     # watchlist = SnykWatchList()
 
-    gh = Github(s.github_token, per_page=100)
+    gh = Github(s.github_token, per_page=1)
 
     rate_limit = RateLimit(gh)
 
-    client = snyk.SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
+    client = snyk.SnykClient(
+        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1
+    )
+
+    v3client = api.SnykV3Client(
+        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1
+    )
 
     if s.github_orgs is not None:
         gh_orgs = list(s.github_orgs)
@@ -208,47 +225,18 @@ def sync(
     exclude_list = []
 
     typer.echo("Getting all GitHub repos", err=True)
-    with typer.progressbar(gh_orgs, label="Processing: ") as gh_progress:
-        for gh_org_name in gh_progress:
-            gh_org = gh.get_organization(gh_org_name)
-            gh_repos = gh_org.get_repos(type="all", sort="updated", direction="desc")
+
+    for gh_org_name in gh_orgs:
+        gh_org = gh.get_organization(gh_org_name)
+        gh_repos = gh_org.get_repos(type="all", sort="updated", direction="desc")
+        gh_repos_count = gh_repos.totalCount
+        with typer.progressbar(length=gh_repos_count, label=f"Processing {gh_org_name}: ") as gh_progress:
             for gh_repo in gh_repos:
                 # print(watchlist.has_repo(gh_repo.id))
-                if watchlist.has_repo(gh_repo.id) == False:
-                    # i know there is a better way to do this
-                    tmp_repo = {
-                        "fork": gh_repo.fork,
-                        "name": gh_repo.name,
-                        "owner": gh_repo.owner.login,
-                        "branch": gh_repo.default_branch,
-                        "url": gh_repo.html_url,
-                        "project_base": gh_repo.full_name,
-                    }
-                    tmp_target = Repo(
-                        source=tmp_repo,
-                        url=gh_repo.html_url,
-                        fork=gh_repo.fork,
-                        id=gh_repo.id,
-                        updated_at=str(gh_repo.updated_at),
-                    )
-                    watchlist.repos.append(tmp_target)
 
-                elif newer(watchlist.get_repo(gh_repo.id).updated_at, str(gh_repo.updated_at)):
-                    tmp_repo = {
-                        "fork": gh_repo.fork,
-                        "name": gh_repo.name,
-                        "owner": gh_repo.owner.login,
-                        "branch": gh_repo.default_branch,
-                        "url": gh_repo.html_url,
-                        "project_base": gh_repo.full_name,
-                    }
-                    watchlist.get_repo(gh_repo.url).source = (tmp_repo,)
-                    watchlist.get_repo(gh_repo.url).url = (gh_repo.html_url,)
-                    watchlist.get_repo(gh_repo.url).fork = (gh_repo.fork,)
-                    watchlist.get_repo(gh_repo.url).id = (gh_repo.id,)
-                    watchlist.get_repo(gh_repo.url).updated_at = str(gh_repo.updated_at)
-                else:
-                    exclude_list.append(gh_repo.id)
+                watchlist.add_repo(gh_repo)
+
+                gh_progress.update(1)
 
     # print(exclude_list)
     rate_limit.update(show_rate_limit)
@@ -278,7 +266,7 @@ def sync(
                 f_repo = gh.get_repo(f"{f_owner}/{f_name}")
                 try:
                     f_yaml = f_repo.get_contents(".snyk.d/import.yaml")
-                    import_yamls.append(f_yaml)
+                    watchlist.get_repo(f_repo.id).parse_import(f_yaml)
                 except:
                     pass
 
@@ -286,43 +274,37 @@ def sync(
         rate_limit.update(show_rate_limit)
 
     if len(import_yamls) > 0:
-        typer.echo(f"Scanning repos for import.yaml", err=True)
+        typer.echo(f"Loading import.yaml for non fork-ed repos", err=True)
 
         with typer.progressbar(import_yamls, label="Scanning: ") as import_progress:
             for import_yaml in import_progress:
-                r_yaml = yaml.safe_load(import_yaml.decoded_content)
-                r_url = import_yaml.repository.id
-                # print(r_url)
-                if "orgName" in r_yaml.keys():
-                    watchlist.get_repo(r_url).org = r_yaml["orgName"]
 
-                if "tags" in r_yaml.keys():
-                    for k, v in r_yaml["tags"].items():
-                        tmp_tag = {"key": k, "value": v}
-                        watchlist.get_repo(r_url).tags.append(Tag.parse_obj(tmp_tag))
+                r_id = import_yaml.repository.id
+
+                import_repo = watchlist.get_repo(r_id)
+
+                import_repo.parse_import(import_yaml)
 
     rate_limit.update(show_rate_limit)
 
-    # we are only searching for orgs declared in the snyk-orgs.yaml file
-    # this means projects could exist in other snyk orgs we're not watching
-    org_ids = [s.snyk_orgs[o]["orgId"] for o in s.snyk_orgs]
+    # this calls our new Orgs object which caches and populates Snyk data locally for us
 
-    # we want to get the visible list of orgs
+    all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
-    visible_orgs = [o.id for o in client.organizations.all()]
+    select_orgs = [str(o["orgId"]) for k, o in s.snyk_orgs.items()]
 
-    org_ids = [o for o in org_ids if o in visible_orgs]
+    typer.echo(f"Updating cache of Snyk projects", err=True)
 
-    typer.echo("Scanning Snyk for projects originating from GitHub Repos", err=True)
-    with typer.progressbar(watchlist.repos, label="Scanning: ") as project_progress:
-        for r in project_progress:
-            for snyk_org in org_ids:
-                # print(r.source.project_base)
-                p_resp = search_projects(r.source.project_base, str(s.default_int), client, snyk_org)
-                for p in p_resp["projects"]:
-                    p["org_id"] = p_resp["org"]["id"]
-                    p["org_name"] = p_resp["org"]["name"]
-                    r.add_project(Project.parse_obj(p))
+    all_orgs.refresh_orgs(client, v3client, origin="github-enterprise", selected_orgs=select_orgs)
+
+    all_orgs.save()
+
+    typer.echo("Scanning Snyk for projects originating from GitHub Enterprise Repos", err=True)
+    for r in watchlist.repos:
+        found_projects = all_orgs.find_projects_by_repo(r.full_name, r.id)
+
+        for p in found_projects:
+            r.add_project(p)
 
     watchlist.save(cachedir=str(s.cache_dir))
     typer.echo("Sync completed", err=True)
@@ -397,7 +379,7 @@ def targets(
     target_list = []
 
     for r in watchlist.repos:
-        if len(r.projects) == 0 or r.needs_reimport(s.default_org) is True:
+        if len(r.projects) == 0 or r.needs_reimport(s.default_org, s.snyk_orgs) is True:
             if r.org != "default":
                 org_id = s.snyk_orgs[r.org]["orgId"]
                 int_id = s.snyk_orgs[r.org]["integrations"]["github-enterprise"]

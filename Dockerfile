@@ -6,7 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE 1
 
 # Add jq and curl
 
-RUN apt update && apt install -y jq curl
+RUN apt update && apt install --no-install-recommends -y jq curl && apt-get clean
 
 # step one is to create a container with poetry on it
 RUN python -m pip install --quiet -U pip poetry
