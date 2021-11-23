@@ -174,6 +174,27 @@ API calls for searching for import.yaml
                 Core Cost: 0    Search Cost: 1
 ```
 
-docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN \
--e REQUESTS_CA_BUNDLE=/runtime/massmutual.pem -v "${PWD}":/runtime \
+docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN -v "${PWD}":/runtime \
 ghcr.io/snyk-playground/snyk-sync:latest --sync targets --save
+
+### Using a custom CA Root Certificate / proxies
+
+If using a proxy, ensure that you are passing HTTP_PROXY and HTTPS_PROXY environment variables to the container runtimes.
+
+`-e HTTP_PROXY -e HTTPS_PROXY` will create env variables with the same values as the machine that ran the docker command.
+
+**Custom Certificates**
+
+Naming the custom certificate bundle `custom-ca.crt` and placing it in base directory you are mounting as runtime, both the snyk-sycn and api-import entrypoints will detect and set appropriate environment variables for Python and Node respectively. In most cases this is the same as the config-repo itself, and would be mounted to /runtime, which is the containers workdir.
+
+So in most cases:
+
+- Rename your custom certificate bundle as `custom-ca.crt`
+- Ensure `custom-ca.cert` is in the root of your config-repo
+
+If you want to specify your own path to the certificate bundle, ensure that file is present before the entrypoints run, and set the following environment flags:
+
+```
+REQUESTS_CA_BUNDLE="/custom/path/to/ca-bundle.crt"
+NODE_EXTRA_CA_CERTS="/custom/path/to/ca-bundle.crt"
+```
