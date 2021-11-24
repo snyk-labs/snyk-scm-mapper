@@ -28,7 +28,6 @@ class Settings(BaseModel):
     github_orgs: List[str] = list()
     cache_timeout: Optional[float]
     instance: Optional[str]
-
     forks: bool = False
     force_sync: bool = False
 
@@ -90,9 +89,11 @@ class SnykWatchList(BaseModel):
         }
 
         branches = list()
+
         branches.append(repo.default_branch)
 
         if self.has_repo(repo.id):
+
             existing_repo = self.get_repo(repo.id)
 
             if existing_repo.is_older(repo.updated_at):
@@ -103,6 +104,8 @@ class SnykWatchList(BaseModel):
 
                 existing_repo.fork = repo.fork
 
+                existing_repo.topics = repo.get_topics()
+
                 existing_repo.updated_at = str(repo.updated_at)
 
         else:
@@ -111,6 +114,7 @@ class SnykWatchList(BaseModel):
                     source=tmp_repo,
                     url=repo.html_url,
                     fork=repo.fork,
+                    topics=repo.get_topics(),
                     id=repo.id,
                     branches=branches,
                     updated_at=str(repo.updated_at),

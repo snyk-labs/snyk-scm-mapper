@@ -170,6 +170,8 @@ class Repo(BaseModel):
     tags: List[Tag] = []
     org: str = "default"
     branches: List
+    fork: bool = False
+    topics: List[str] = list()
 
     def get_reimport(self, default_org, snyk_orgs: dict) -> List[Branch]:
         """
@@ -260,9 +262,6 @@ class Repo(BaseModel):
 
     def has_tags(self):
         return len(self.tags) > 0
-
-    def fork(self):
-        return self.source.fork
 
     def get_project(self, id) -> Project:
 

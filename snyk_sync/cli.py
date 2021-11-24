@@ -289,7 +289,7 @@ def sync(
     # we will likely want to put a limit around this, as we need to walk forked repose and try to get import.yaml
     # since github won't index a fork if it has less stars than upstream
 
-    forks = [f for f in watchlist.repos if f.fork()]
+    forks = [f for f in watchlist.repos if f.fork]
     forks = [y for y in forks if y.id not in exclude_list]
 
     if s.forks is True and len(forks) > 0:
