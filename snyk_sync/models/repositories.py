@@ -131,15 +131,32 @@ class Project(BaseModel):
         # print(matches)
         return matches > 0
 
-    def get_missing_tags(self, repo_org: str, tags: List[Tag]):
+    def get_missing_tags(self, tags: list):
         """
         Returns a list of missing tags from a project. This assumes we only want tags managed on projects that are in the snyk org the parent repo's .snyk.d/import.yaml defines
         Because of how the snyk tag API works, you can have duplicate values for tags (user=foo, user=bar), so we can create duplicate tags key's here, but currently we're not support overwriting or pruning existing tags on a project
         """
-        if repo_org != self.org_slug:
-            return []
 
-        return [i for i in tags if i not in self.tags]
+        tag_list = [m.dict() for m in self.tags]
+
+        missing = [i for i in tags if i not in tag_list]
+
+        return missing
+
+
+class Branch(BaseModel):
+    name: str = "main"
+    org_slug: str
+    org_id: str
+    integrations: dict
+    projects: List[Project] = list()
+    tags: list
+
+    def project_count(self):
+        return len(self.projects)
+
+    def tag_count(self):
+        return len(self.tags)
 
 
 class Repo(BaseModel):
@@ -152,22 +169,94 @@ class Repo(BaseModel):
     projects: List[Project] = []
     tags: List[Tag] = []
     org: str = "default"
-    branches: List[str]
+    branches: List
 
-    def needs_reimport(self, default_org, snyk_orgs):
+    def get_reimport(self, default_org, snyk_orgs: dict) -> List[Branch]:
         """
-        Returns true if there are no projects in associated with the org that has been assigned to this repo
+        Returns a list branches and their associated projects that can be used for reimport
         """
-        if self.org == "default":
-            org_name = default_org
-        else:
+
+        todo = self.parse_branches(default_org, snyk_orgs)
+
+        for i, br in enumerate(todo):
+
+            todo[i].projects = [p for p in self.projects if str(p.org_id) == br.org_id and p.branch == br.name]
+
+        return todo
+
+    def parse_branches(self, default_org: str, snyk_orgs: dict) -> List[Branch]:
+
+        if self.org in snyk_orgs.keys():
             org_name = self.org
+        else:
+            org_name = default_org
 
-        org_id = snyk_orgs[org_name]["orgId"]
+        str_branches = [b for b in self.branches if isinstance(b, str)]
 
-        matching = [p for p in self.projects if p.org_id == org_id]
+        todo = list()
 
-        return len(matching) == 0
+        for b in str_branches:
+
+            branch = Branch(
+                name=b,
+                org_slug=org_name,
+                org_id=snyk_orgs[org_name]["orgId"],
+                integrations=snyk_orgs[org_name]["integrations"],
+                tags=[m.dict() for m in self.tags],
+            )
+
+            todo.append(branch)
+
+        overrides = [b for b in self.branches if isinstance(b, dict)]
+
+        for override in overrides:
+            for k, v in override.items():
+                ovr_branch = Branch(
+                    name=k,
+                    org_slug=org_name,
+                    org_id=snyk_orgs[org_name]["orgId"],
+                    integrations=snyk_orgs[org_name]["integrations"],
+                    tags=[m.dict() for m in self.tags],
+                )
+
+                # if we have any other values, we will update that also
+                if isinstance(v, dict):
+
+                    if "orgName" in v.keys():
+                        if v["orgName"] in snyk_orgs.keys():
+                            org_name = v["orgName"]
+                        else:
+                            org_name = default_org
+
+                        ovr_branch.org_slug = org_name
+                        ovr_branch.org_id = snyk_orgs[org_name]["orgId"]
+                        ovr_branch.integrations = snyk_orgs[org_name]["integrations"]
+
+                    if "tags" in v.keys():
+                        ovr_branch.tags = list()
+                        for k, t in v["tags"].items():
+                            tmp_tag = {"key": k, "value": t}
+                            ovr_branch.tags.append(tmp_tag)
+
+                todo.append(ovr_branch)
+
+        return todo
+
+    def needs_reimport(self, default_org, snyk_orgs: dict) -> bool:
+
+        # we can just break here and state we need to reimport because we have no projects
+        if len(self.projects) == 0:
+            return True
+
+        reimports = self.get_reimport(default_org, snyk_orgs)
+
+        # we want to check that we have projects under every branch
+        # as soon as we find a branch without projects, we know we need to import that branch
+        for branch in reimports:
+            if branch.project_count() == 0:
+                return True
+
+        return False
 
     def has_tags(self):
         return len(self.tags) > 0
@@ -227,8 +316,15 @@ class Repo(BaseModel):
         r_yaml.update(yaml.safe_load(import_yaml.decoded_content))
 
         if "instance" in r_yaml.keys():
+
             if instance in r_yaml["instance"].keys():
+
                 override = r_yaml["instance"].pop(instance)
+
+                # this drops the repo into the default org of the calling instance
+                if "orgName" not in override.keys():
+                    override["orgName"] = "default"
+
                 r_yaml.update(override)
 
         self.import_sha = import_yaml.sha

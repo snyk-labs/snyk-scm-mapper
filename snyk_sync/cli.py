@@ -237,6 +237,9 @@ def sync(
     # flush the watchlist
     # watchlist = SnykWatchList()
 
+    watchlist.default_org = s.default_org
+    watchlist.snyk_orgs = s.snyk_orgs
+
     gh = Github(s.github_token, per_page=1)
 
     rate_limit = RateLimit(gh)
@@ -299,7 +302,9 @@ def sync(
                 f_repo = gh.get_repo(f"{f_owner}/{f_name}")
                 try:
                     f_yaml = f_repo.get_contents(".snyk.d/import.yaml")
-                    watchlist.get_repo(f_repo.id).parse_import(f_yaml, instance=s.instance)
+                    yaml_repo = watchlist.get_repo(f_repo.id)
+                    if yaml_repo:
+                        yaml_repo.parse_import(f_yaml, instance=s.instance)
                 except:
                     pass
 
@@ -316,7 +321,8 @@ def sync(
 
                 import_repo = watchlist.get_repo(r_id)
 
-                import_repo.parse_import(import_yaml, instance=s.instance)
+                if import_repo:
+                    import_repo.parse_import(import_yaml, instance=s.instance)
 
     rate_limit.update(show_rate_limit)
 
@@ -393,12 +399,16 @@ def status():
 
     typer.echo("Cache loaded successfully", err=True)
 
+    watchlist.default_org = s.default_org
+    watchlist.snyk_orgs = s.snyk_orgs
+
     return in_sync
 
 
 @app.command()
 def targets(
-    save_targets: bool = typer.Option(False, "--save", help="Write targets to disk, otherwise print to stdout")
+    save_targets: bool = typer.Option(False, "--save", help="Write targets to disk, otherwise print to stdout"),
+    force_default: bool = typer.Option(False, "--force-default", help="Forces all Org's to default"),
 ):
     """
     Returns valid input for api-import to consume
@@ -416,26 +426,28 @@ def targets(
     target_list = []
 
     for r in watchlist.repos:
-        if len(r.projects) == 0 or r.needs_reimport(s.default_org, s.snyk_orgs) is True:
-            if r.org != "default":
-                org_id = s.snyk_orgs[r.org]["orgId"]
-                int_id = s.snyk_orgs[r.org]["integrations"]["github-enterprise"]
-            else:
-                org_id = s.default_org_id
-                int_id = s.default_int_id
+        if r.needs_reimport(s.default_org, s.snyk_orgs):
+            for branch in r.get_reimport(s.default_org, s.snyk_orgs):
+                if branch.project_count() == 0:
 
-            for branch in r.branches:
-                source = r.source.get_target()
+                    if force_default:
+                        org_id = s.snyk_orgs[s.default_org]["orgId"]
+                        int_id = s.snyk_orgs[s.default_org]["integrations"]["github-enterprise"]
+                    else:
+                        org_id = branch.org_id
+                        int_id = branch.integrations["github-enterprise"]
 
-                source["branch"] = branch
+                    source = r.source.get_target()
 
-                target = {
-                    "target": source,
-                    "integrationId": int_id,
-                    "orgId": org_id,
-                }
+                    source["branch"] = branch.name
 
-                target_list.append(target)
+                    target = {
+                        "target": source,
+                        "integrationId": int_id,
+                        "orgId": org_id,
+                    }
+
+                    target_list.append(target)
 
     final_targets = list()
 
@@ -480,7 +492,7 @@ def tags(
         str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=1, delay=1
     )
 
-    if status() is False:
+    if status() == False:
         sync()
 
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
@@ -504,7 +516,7 @@ def tags(
     # now we iterate over needs_tags by group and save out a per group tag file
 
     for g_tags in needs_tags:
-        if len(g_tags["tags"]) > 0:
+        if g_tags["tags"]:
             if update_tags is True:
                 typer.echo(f"Checking if {g_tags['name']} projects need tag updates", err=True)
 

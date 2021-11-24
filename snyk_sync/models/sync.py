@@ -3,10 +3,12 @@ import json
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, error_wrappers
 from github import Repository
 
-from .repositories import Repo
+from pprint import pprint
+
+from .repositories import Project, Repo, Branch
 
 
 class Settings(BaseModel):
@@ -39,6 +41,8 @@ class Settings(BaseModel):
 
 class SnykWatchList(BaseModel):
     repos: List[Repo] = []
+    default_org: str = ""
+    snyk_orgs: dict = {}
 
     def match(self, **kwargs):
         data = []
@@ -51,9 +55,12 @@ class SnykWatchList(BaseModel):
 
     def get_repo(self, id) -> Repo:
 
-        filter_repo = [r for r in self.repos if r.id == id]
+        if self.has_repo(id):
+            filter_repo = [r for r in self.repos if r.id == id]
 
-        return filter_repo[0]
+            return filter_repo[0]
+        else:
+            return None
 
     def has_repo(self, id) -> bool:
 
@@ -99,35 +106,57 @@ class SnykWatchList(BaseModel):
                 existing_repo.updated_at = str(repo.updated_at)
 
         else:
-            tmp_target = Repo(
-                source=tmp_repo,
-                url=repo.html_url,
-                fork=repo.fork,
-                id=repo.id,
-                branches=branches,
-                updated_at=str(repo.updated_at),
-                full_name=str(repo.full_name),
-            )
+            try:
+                tmp_target = Repo(
+                    source=tmp_repo,
+                    url=repo.html_url,
+                    fork=repo.fork,
+                    id=repo.id,
+                    branches=branches,
+                    updated_at=str(repo.updated_at),
+                    full_name=str(repo.full_name),
+                )
+                self.repos.append(tmp_target)
+            except error_wrappers.ValidationError as e:
+                # we just want to skip repos we can't validate
+                pass
 
-            self.repos.append(tmp_target)
+    def get_org_id(self, project: Project) -> str:
 
-    def get_proj_tag_updates(self, org_ids: list) -> list:
+        pass
+
+    def get_proj_tag_updates(self, org_ids: list) -> List[Branch]:
 
         has_tags = [r for r in self.repos if r.has_tags()]
 
-        needs_tags = []
+        needs_tags = list()
+
+        repo_branches = list()
 
         for repo in has_tags:
-            group_projects = [p for p in repo.projects if str(p.org_id) in org_ids]
-            for project in group_projects:
-                missing_tags = project.get_missing_tags(repo.org, repo.tags)
-                if len(missing_tags) > 0:
-                    missing_tags = [m.dict() for m in missing_tags]
-                    fix_project = {
-                        "org_id": str(project.org_id),
-                        "project_id": str(project.id),
-                        "tags": missing_tags,
-                    }
-                    needs_tags.append(fix_project)
+            branches = repo.get_reimport(self.default_org, self.snyk_orgs)
+
+            in_group = [b for b in branches if b.org_id in org_ids]
+
+            if in_group:
+                repo_branch = {"repo": repo, "branches": in_group}
+                repo_branches.append(repo_branch)
+
+        for repo in repo_branches:
+
+            for branch in repo["branches"]:
+                branch: Branch
+
+                for project in branch.projects:
+
+                    missing_tags = project.get_missing_tags(branch.tags)
+
+                    if missing_tags:
+                        fix_project = {
+                            "org_id": str(project.org_id),
+                            "project_id": str(project.id),
+                            "tags": missing_tags,
+                        }
+                        needs_tags.append(fix_project)
 
         return needs_tags
