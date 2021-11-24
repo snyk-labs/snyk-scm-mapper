@@ -24,6 +24,8 @@ If one has a large organization with many hundreds or thousands of repositories,
 
 ## Setup
 
+See [scenarios](SCENARIOS.md)
+
 Snyk Sync expects a `GITHUB_TOKEN` and `SNYK_TOKEN` environment variables to be present, along with a snyk-sync.yaml file, snyk-orgs.yaml file, and a folder to store the cache in (it will not create this folder). See the [example](/example) directory for a starting point.
 
 ```
