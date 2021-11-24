@@ -1,33 +1,26 @@
 import json
-from uuid import RESERVED_FUTURE, UUID
-from tomlkit.items import DateTime
-import yaml
 
 from pathlib import Path
-from pprint import pprint
-from dataclasses import dataclass
 from datetime import datetime
-
 from typing import Optional, List, Dict
-
 from pydantic import BaseModel, UUID4
+from github import Repository
 
 from .repositories import Repo
-
-from github import Repository
 
 
 class Settings(BaseModel):
     cache_dir: Optional[Path]
     conf: Optional[Path]
-    targets_file: Optional[Path]
+    targets_dir: Optional[Path]
+    tags_dir: Optional[Path]
     snyk_orgs: Dict = dict()
     snyk_orgs_file: Optional[Path]
     default_org: Optional[str]
     default_int: Optional[str]
     default_org_id: Optional[UUID4]
     default_int_id: Optional[UUID4]
-    snyk_groups: Optional[List[UUID4]]
+    snyk_groups: Optional[List[dict]]
     snyk_token: Optional[UUID4]
     github_token: Optional[str]
     github_orgs: List[str] = list()
@@ -117,3 +110,24 @@ class SnykWatchList(BaseModel):
             )
 
             self.repos.append(tmp_target)
+
+    def get_proj_tag_updates(self, org_ids: list) -> list:
+
+        has_tags = [r for r in self.repos if r.has_tags()]
+
+        needs_tags = []
+
+        for repo in has_tags:
+            group_projects = [p for p in repo.projects if str(p.org_id) in org_ids]
+            for project in group_projects:
+                missing_tags = project.get_missing_tags(repo.org, repo.tags)
+                if len(missing_tags) > 0:
+                    missing_tags = [m.dict() for m in missing_tags]
+                    fix_project = {
+                        "org_id": str(project.org_id),
+                        "project_id": str(project.id),
+                        "tags": missing_tags,
+                    }
+                    needs_tags.append(fix_project)
+
+        return needs_tags

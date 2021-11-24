@@ -70,15 +70,25 @@ def main(
         resolve_path=True,
         envvar="SNYK_SYNC_CONFIG",
     ),
-    targets_file: Optional[Path] = typer.Option(
+    targets_dir: Optional[Path] = typer.Option(
         default=None,
         exists=True,
-        file_okay=True,
-        dir_okay=False,
+        file_okay=False,
+        dir_okay=True,
         writable=True,
         readable=True,
         resolve_path=True,
-        envvar="SNYK_SYNC_TARGETS_FILE",
+        envvar="SNYK_SYNC_TARGETS_DIR",
+    ),
+    tags_dir: Optional[Path] = typer.Option(
+        default=None,
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        writable=True,
+        readable=True,
+        resolve_path=True,
+        envvar="SNYK_SYNC_TAGS_DIR",
     ),
     snyk_orgs_file: Optional[Path] = typer.Option(
         default=None,
@@ -143,15 +153,21 @@ def main(
 
     conf_file = yopen(s.conf)
 
-    if s.targets_file is None:
-        if "targets_file_name" in conf_file:
-            s.targets_file = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
+    if s.targets_dir is None:
+        if "targets_dir" in conf_file:
+            s.targets_dir = Path(f'{conf_dir}/{conf_file["targets_dir"]}')
         else:
-            s.targets_file = Path(f"{conf_dir}/import-targets.json")
+            s.targets_dir = Path(f"{conf_dir}/import-targets")
+
+    if s.tags_dir is None:
+        if "targets_dir" in conf_file:
+            s.tags_dir = Path(f'{conf_dir}/{conf_file["tags_dir"]}')
+        else:
+            s.tags_dir = Path(f"{conf_dir}/tags")
 
     if s.cache_dir is None:
         if "cache_dir" in conf_file:
-            s.cache_dir = Path(f'{conf_dir}/{conf_file["targets_file_name"]}')
+            s.cache_dir = Path(f'{conf_dir}/{conf_file["cache_dir"]}')
         else:
             s.cache_dir = Path(f"{conf_dir}/cache")
 
@@ -176,6 +192,15 @@ def main(
 
     if s.snyk_groups is None:
         s.snyk_groups = conf_file["snyk"]["groups"]
+
+    # Load our per group service token, which are set as custom env paths
+
+    for group in s.snyk_groups:
+        env_var = group["token_env_name"]
+        if env_var in environ.keys():
+            group["snyk_token"] = environ[env_var]
+        else:
+            raise Exception(f"Environment Variable {env_var} is not set properly and required")
 
     if s.instance is None:
         if "instance" in conf_file.keys():
@@ -291,9 +316,7 @@ def sync(
 
                 import_repo = watchlist.get_repo(r_id)
 
-
                 import_repo.parse_import(import_yaml, instance=s.instance)
-
 
     rate_limit.update(show_rate_limit)
 
@@ -319,6 +342,8 @@ def sync(
 
     if show_rate_limit is True:
         rate_limit.total()
+
+    del all_orgs
 
     typer.echo(f"Total Repos: {len(watchlist.repos)}", err=True)
 
@@ -384,6 +409,10 @@ def targets(
     if status() == False:
         sync()
 
+    all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
+
+    all_orgs.load()
+
     target_list = []
 
     for r in watchlist.repos:
@@ -408,16 +437,32 @@ def targets(
 
                 target_list.append(target)
 
-    import_targets = {"targets": target_list}
+    final_targets = list()
+
+    for group in s.snyk_groups:
+        orgs = all_orgs.get_orgs_by_group(group)
+
+        o_ids = [str(o.id) for o in orgs]
+
+        g_targets = {"name": group["name"], "targets": list()}
+
+        g_targets["targets"] = [t for t in target_list if str(t["orgId"]) in o_ids]
+
+        final_targets.append(g_targets)
 
     if save_targets is True:
-        typer.echo(f"Writing targets to {s.targets_file}", err=True)
-        if jwrite(import_targets, s.targets_file):
-            typer.echo("Write Successful", err=True)
-        else:
-            typer.echo("Write Failed", err=True)
+        typer.echo(f"Writing targets to {s.targets_dir}", err=True)
+        if os.path.isdir(f"{s.targets_dir}") is not True:
+            typer.echo(f"Creating directory to {s.targets_dir}", err=True)
+            os.mkdir(f"{s.targets_dir}")
+        for targets in final_targets:
+            file_name = f"{s.targets_dir}/{targets.pop('name')}.json"
+            if jwrite(targets, file_name):
+                typer.echo(f"Wrote {file_name} Successfully", err=True)
+            else:
+                typer.echo(f"Failed to Write {file_name}", err=True)
     else:
-        typer.echo(json.dumps(import_targets, indent=2))
+        typer.echo(json.dumps(final_targets, indent=2))
 
 
 @app.command()
@@ -431,54 +476,77 @@ def tags(
     global s
     global watchlist
 
+    v1client = snyk.SnykClient(
+        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=1, delay=1
+    )
+
     if status() is False:
         sync()
 
-    has_tags = [r for r in watchlist.repos if r.has_tags()]
+    all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
-    needs_tags = []
+    all_orgs.load()
 
-    for repo in has_tags:
-        for project in repo.projects:
-            missing_tags = project.get_missing_tags(repo.org, repo.tags)
-            if len(missing_tags) > 0:
-                missing_tags = [m.dict() for m in missing_tags]
-                fix_project = {
-                    "org_id": str(project.org_id),
-                    "project_id": str(project.id),
-                    "tags": missing_tags,
-                }
-                needs_tags.append(fix_project)
+    needs_tags = list()
 
-    conf_dir = os.path.dirname(str(s.conf))
+    for group in s.snyk_groups:
 
-    # tags should be broken out into it's own module
+        group_tags = {"name": group["name"], "tags": list()}
 
-    if len(needs_tags) > 0:
-        if update_tags is True:
-            typer.echo(f"Updating tags for projects", err=True)
-            client = snyk.SnykClient(str(s.snyk_token))
-            for p in needs_tags:
-                p_path = f"org/{p['org_id']}/project/{p['project_id']}"
-                p_tag_path = f"org/{p['org_id']}/project/{p['project_id']}/tags"
+        orgs = all_orgs.get_orgs_by_group(group)
 
-                p_live = json.loads(client.get(p_path).text)
+        o_ids = [str(o.id) for o in orgs]
 
-                for tag in p["tags"]:
-                    if tag not in p_live["tags"]:
-                        client.post(p_tag_path, tag)
-                    else:
-                        typer.echo("Tag already updated", err=True)
-        elif save_tags is True:
-            typer.echo(f"Writing tag updates to {conf_dir}/tag-updates.json")
-            if jwrite(needs_tags, f"{conf_dir}/tag-updates.json"):
-                typer.echo("Write Successful", err=True)
-            else:
-                typer.echo("Write Failed", err=True)
+        group_tags["tags"] = watchlist.get_proj_tag_updates(o_ids)
+
+        needs_tags.append(group_tags)
+
+    # now we iterate over needs_tags by group and save out a per group tag file
+
+    for g_tags in needs_tags:
+        if len(g_tags["tags"]) > 0:
+            if update_tags is True:
+                typer.echo(f"Checking if {g_tags['name']} projects need tag updates", err=True)
+
+                snyk_token = all_orgs.get_token_for_group(g_tags["name"])
+
+                setattr(v1client, "token", snyk_token)
+
+                for p in g_tags["tags"]:
+                    p_path = f"org/{p['org_id']}/project/{p['project_id']}"
+                    p_tag_path = f"{p_path}/tags"
+
+                    p_live = json.loads(v1client.get(p_path).text)
+
+                    tags_to_post = [t for t in p["tags"] if t not in p_live["tags"]]
+
+                    if len(tags_to_post) > 0:
+                        typer.echo(f"Updating {g_tags['name']} project {p_live['name']} tags", err=True)
+                        for tag in tags_to_post:
+                            try:
+                                v1client.post(p_tag_path, tag)
+                            except snyk.errors.SnykHTTPError as e:
+                                if e.code == 422:
+                                    typer.echo(f"Error: Tag for project already exists")
+                                else:
+                                    raise Exception(f"snyk api returned code: {e.code}")
+
+            if save_tags is True:
+                typer.echo(f"Writing {g_tags['name']} tag updates to {s.tags_dir}")
+                if os.path.isdir(f"{s.tags_dir}") is not True:
+                    typer.echo(f"Creating directory {s.tags_dir}", err=True)
+                    os.mkdir(f"{s.tags_dir}")
+                file_name = f"{s.tags_dir}/{g_tags['name']}.json"
+                if jwrite(g_tags["tags"], file_name):
+                    typer.echo(f"Wrote {file_name} Successfully", err=True)
+                else:
+                    typer.echo(f"Failed to Write {file_name}", err=True)
+
+            if not save_tags and not update_tags:
+                typer.echo(json.dumps(g_tags["tags"], indent=2))
+
         else:
-            typer.echo(json.dumps(needs_tags, indent=2))
-    else:
-        typer.echo("No projects require tag updates", err=True)
+            typer.echo(f"No {g_tags['name']} projects require tag updates", err=True)
 
 
 @app.command()

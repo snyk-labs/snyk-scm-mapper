@@ -247,8 +247,8 @@ class Repo(BaseModel):
 
     def is_older(self, timestamp) -> bool:
 
-        remote_ts = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S")
+        remote_ts = datetime.strptime(str(timestamp), "%Y-%m-%d %H:%M:%S")
 
-        local_ts = datetime.strptime(self.updated_at, "%Y-%m-%d %H:%M:%S")
+        local_ts = datetime.strptime(str(self.updated_at), "%Y-%m-%d %H:%M:%S")
 
         return bool(remote_ts > local_ts)

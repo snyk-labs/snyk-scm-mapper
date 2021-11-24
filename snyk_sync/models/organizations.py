@@ -1,5 +1,6 @@
 import json
 from uuid import RESERVED_FUTURE, UUID, uuid4
+import snyk
 from snyk.client import SnykClient
 from tomlkit.api import boolean
 from tomlkit.items import DateTime
@@ -339,11 +340,16 @@ class Org(BaseModel):
 class Orgs(BaseModel):
     orgs: List[Org] = list()
     cache: str = ""
-    groups: List[UUID4] = list()
+    groups: List[dict] = list()
 
     def refresh_orgs(self, v1client: SnykClient, v3client: SnykV3Client, origin: str = None, selected_orgs: list = []):
         for group in self.groups:
-            new_orgs = v1_get_pages(f"group/{group}/orgs", v1client, "orgs")
+            group_id = group["id"]
+            group_token = group["snyk_token"]
+
+            setattr(v1client, "token", group_token)
+
+            new_orgs = v1_get_pages(f"group/{group_id}/orgs", v1client, "orgs")
             for org in new_orgs["orgs"]:
                 if len(selected_orgs) == 0 or org["id"] in selected_orgs:
                     org["group_id"] = new_orgs["id"]
@@ -352,6 +358,12 @@ class Orgs(BaseModel):
 
         for org in self.orgs:
             logger.debug(f"Refreshing Org: {org.name}")
+
+            snyk_token = self.get_token_for_org(org)
+
+            setattr(v1client, "token", snyk_token)
+            setattr(v3client, "token", snyk_token)
+
             org.refresh(v1client, v3client, origin)
 
         pass
@@ -424,3 +436,27 @@ class Orgs(BaseModel):
             found_projects.extend(org.find_projects_by_repo(name, id))
 
         return found_projects
+
+    def get_token_for_org(self, org: Org) -> str:
+
+        group = [g for g in self.groups if str(g["id"]) == str(org.group_id)]
+
+        snyk_token = group[0]["snyk_token"]
+
+        return snyk_token
+
+    def get_token_for_group(self, group: str) -> str:
+
+        group = [g for g in self.groups if g["name"] == group]
+
+        snyk_token = group[0]["snyk_token"]
+
+        return snyk_token
+
+    def get_orgs_by_group(self, group: dict) -> List[Org]:
+
+        g_id = group["id"]
+
+        orgs = [o for o in self.orgs if str(o.group_id) == str(g_id)]
+
+        return orgs
