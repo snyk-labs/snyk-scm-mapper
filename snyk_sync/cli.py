@@ -19,11 +19,13 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
+from pprint import pprint
+
 from models.repositories import Repo, Project, Tag
 from models.sync import SnykWatchList, Settings
 from models.organizations import Orgs, Org, Target
 
-from utils import yopen, jopen, search_projects, RateLimit, newer, jwrite
+from utils import yopen, jopen, search_projects, RateLimit, newer, jwrite, default_settings
 
 app = typer.Typer(add_completion=False)
 
@@ -36,9 +38,30 @@ watchlist = SnykWatchList()
 logging.basicConfig(level="INFO")
 
 
-@app.callback(invoke_without_command=True)
+def settings_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
+
+    if value and value != param.default:
+        return value
+    else:
+        setting = default_settings(param.name, value, param.default, ctx)
+        return setting
+
+
+@app.callback(
+    invoke_without_command=True,
+    no_args_is_help=False,
+)
 def main(
     ctx: typer.Context,
+    conf: Path = typer.Option(
+        default="snyk-sync.yaml",
+        file_okay=True,
+        dir_okay=False,
+        writable=False,
+        readable=True,
+        resolve_path=True,
+        envvar="SNYK_SYNC_CONFIG",
+    ),
     cache_dir: Optional[Path] = typer.Option(
         default=None,
         exists=True,
@@ -49,26 +72,19 @@ def main(
         resolve_path=True,
         help="Cache location",
         envvar="SNYK_SYNC_CACHE_DIR",
+        callback=settings_callback,
     ),
     cache_timeout: int = typer.Option(
         default=60,
         help="Maximum cache age, in minutes",
         envvar="SNYK_SYNC_CACHE_TIMEOUT",
+        callback=settings_callback,
     ),
     forks: bool = typer.Option(
         default=False,
         help="Check forks for import.yaml files",
         envvar="SNYK_SYNC_FORKS",
-    ),
-    conf: Path = typer.Option(
-        default="snyk-sync.yaml",
-        exists=True,
-        file_okay=True,
-        dir_okay=False,
-        writable=False,
-        readable=True,
-        resolve_path=True,
-        envvar="SNYK_SYNC_CONFIG",
+        callback=settings_callback,
     ),
     targets_dir: Optional[Path] = typer.Option(
         default=None,
@@ -79,6 +95,7 @@ def main(
         readable=True,
         resolve_path=True,
         envvar="SNYK_SYNC_TARGETS_DIR",
+        callback=settings_callback,
     ),
     tags_dir: Optional[Path] = typer.Option(
         default=None,
@@ -89,6 +106,7 @@ def main(
         readable=True,
         resolve_path=True,
         envvar="SNYK_SYNC_TAGS_DIR",
+        callback=settings_callback,
     ),
     snyk_orgs_file: Optional[Path] = typer.Option(
         default=None,
@@ -100,37 +118,43 @@ def main(
         resolve_path=True,
         help="Snyk orgs to watch",
         envvar="SNYK_SYNC_ORGS",
+        callback=settings_callback,
     ),
     default_org: str = typer.Option(
         default=None,
         help="Default Snyk Org to use from Orgs file.",
         envvar="SNYK_SYNC_DEFAULT_ORG",
+        callback=settings_callback,
     ),
     default_int: str = typer.Option(
         default=None,
         help="Default Snyk Integration to use with Default Org.",
         envvar="SNYK_SYNC_DEFAULT_INT",
+        callback=settings_callback,
     ),
     instance: str = typer.Option(
         default=None,
         help="Default Snyk Integration to use with Default Org.",
         envvar="SNYK_SYNC_INSTANCE",
-    ),
-    snyk_group: UUID = typer.Option(
-        default=None,
-        help="Group ID, required but will scrape from ENV",
-        envvar="SNYK_SYNC_GROUP",
+        callback=settings_callback,
     ),
     snyk_token: UUID = typer.Option(
-        ...,
-        help="Snyk access token",
+        default=None,
+        help="Snyk access token, if not loaded from Env it will attempt to load from first group",
         envvar="SNYK_TOKEN",
+        callback=settings_callback,
     ),
-    force_sync: bool = typer.Option(False, "--sync", help="Forces a sync regardless of cache status"),
+    force_sync: bool = typer.Option(
+        False,
+        "--sync",
+        help="Forces a sync regardless of cache status",
+        callback=settings_callback,
+    ),
     github_token: str = typer.Option(
-        ...,
-        help="GitHub access token",
+        default=None,
+        help="GitHub access token, if not set here will load from ENV VAR named in snyk-sync.yaml",
         envvar="GITHUB_TOKEN",
+        callback=settings_callback,
     ),
 ):
 
@@ -138,78 +162,7 @@ def main(
     global s
     global watchlist
 
-    # s_dict = dict.fromkeys([o for o in dir() if o != 'ctx'])
-
-    # for k in s_dict:
-    #     s_dict[k] = vars()[k]
-
-    # why are we creating a dict and then loading it?
-
-    # updating a global var
-    # this is a lazy way of stripping all the data from the inputs into the settings we care about
-    s = Settings.parse_obj(vars())
-
-    conf_dir = os.path.dirname(str(s.conf))
-
-    conf_file = yopen(s.conf)
-
-    if s.targets_dir is None:
-        if "targets_dir" in conf_file:
-            s.targets_dir = Path(f'{conf_dir}/{conf_file["targets_dir"]}')
-        else:
-            s.targets_dir = Path(f"{conf_dir}/import-targets")
-
-    if s.tags_dir is None:
-        if "targets_dir" in conf_file:
-            s.tags_dir = Path(f'{conf_dir}/{conf_file["tags_dir"]}')
-        else:
-            s.tags_dir = Path(f"{conf_dir}/tags")
-
-    if s.cache_dir is None:
-        if "cache_dir" in conf_file:
-            s.cache_dir = Path(f'{conf_dir}/{conf_file["cache_dir"]}')
-        else:
-            s.cache_dir = Path(f"{conf_dir}/cache")
-
-    if not s.cache_dir.exists() and not s.cache_dir.is_dir():
-        s.cache_dir.mkdir()
-    elif not s.cache_dir.is_dir():
-        typer.Abort(f"{s.cache_dir.name} is not a directory")
-
-    if s.snyk_orgs_file is None:
-        if "orgs_file" in conf_file:
-            s.snyk_orgs_file = Path(f'{conf_dir}/{conf_file["orgs_file"]}')
-        else:
-            s.snyk_orgs_file = Path(f"{conf_dir}/snyk-orgs.yaml")
-
-    s.github_orgs = conf_file["github_orgs"]
-
-    if s.default_org is None:
-        s.default_org = conf_file["default"]["orgName"]
-
-    if s.default_int is None:
-        s.default_int = conf_file["default"]["integrationName"]
-
-    if s.snyk_groups is None:
-        s.snyk_groups = conf_file["snyk"]["groups"]
-
-    # Load our per group service token, which are set as custom env paths
-
-    for group in s.snyk_groups:
-        env_var = group["token_env_name"]
-        if env_var in environ.keys():
-            group["snyk_token"] = environ[env_var]
-        else:
-            raise Exception(f"Environment Variable {env_var} is not set properly and required")
-
-    if s.instance is None:
-        if "instance" in conf_file.keys():
-            s.instance = conf_file["instance"]
-
-    s.snyk_orgs = yopen(s.snyk_orgs_file)
-
-    s.default_org_id = s.snyk_orgs[s.default_org]["orgId"]
-    s.default_int_id = s.snyk_orgs[s.default_org]["integrations"][s.default_int]
+    s = Settings.parse_obj(ctx.params)
 
     if ctx.invoked_subcommand is None:
         typer.echo("Snyk Sync invoked with no subcommand, executing all", err=True)
@@ -234,11 +187,10 @@ def sync(
 
     typer.echo("Sync starting", err=True)
 
+    load_conf()
+
     # flush the watchlist
     # watchlist = SnykWatchList()
-
-    watchlist.default_org = s.default_org
-    watchlist.snyk_orgs = s.snyk_orgs
 
     gh = Github(s.github_token, per_page=1)
 
@@ -418,6 +370,8 @@ def targets(
 
     if status() == False:
         sync()
+    else:
+        load_conf()
 
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
@@ -494,6 +448,8 @@ def tags(
 
     if status() == False:
         sync()
+    else:
+        load_conf()
 
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
@@ -576,33 +532,82 @@ def autoconf(
     client = snyk.SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
 
     conf = dict()
-    conf["schema"] = 1
+    conf["schema"] = 2
     conf["github_orgs"] = [str(githuborg)]
     conf["snyk"] = dict()
-    conf["snyk"]["group"] = None
+    conf["snyk"]["groups"] = list()
     conf["default"] = dict()
     conf["default"]["orgName"] = snykorg
     conf["default"]["integrationName"] = "github-enterprise"
 
-    orgs = json.loads(client.get("orgs").text)
+    typer.echo(f"Generating configuration based on Snyk Org: {snykorg} and Github Org: {githuborg} ", err=True)
+
+    orgs = client.get("orgs").json()
 
     my_org = [o for o in orgs["orgs"] if o["slug"] == snykorg][0]
 
     my_group_id = my_org["group"]["id"]
 
-    group_orgs = json.loads(client.get(f"group/{my_group_id}/orgs").text)["orgs"]
+    my_group_name = str(my_org["group"]["name"])
+
+    typer.echo(f"Detected Snyk Group: {my_group_name}", err=True)
+
+    my_group_slug = "".join(filter(lambda x: x.isalnum() or x.isspace(), my_group_name.lower()))
+    my_group_slug = "-".join(my_group_slug.split())
+
+    typer.echo(f"Snyk Group: {my_group_name} slug is: {my_group_slug}", err=True)
+
+    group = {"name": my_group_slug, "id": my_group_id, "token_env_name": "SNYK_TOKEN"}
+
+    conf["snyk"]["groups"].append(group)
+
+    group_orgs = api.v1_get_pages(f"group/{my_group_id}/orgs", client, "orgs")
 
     snyk_orgs = dict()
-    for org in group_orgs:
-        org_int = json.loads(client.get(f"org/{org['id']}/integrations").text)
 
-        if "github-enterprise" in org_int:
-            snyk_orgs[org["slug"]] = dict()
-            snyk_orgs[org["slug"]]["orgId"] = org["id"]
-            snyk_orgs[org["slug"]]["integrations"] = org_int
+    with typer.progressbar(group_orgs["orgs"], label="Retrieving every Orgs integration details: ") as orgs:
+        for org in orgs:
 
-    s.conf.write_text(yaml.safe_dump(conf))
-    s.snyk_orgs_file.write_text(yaml.safe_dump(snyk_orgs))
+            org_int = client.get(f"org/{org['id']}/integrations").json()
+
+            if "github-enterprise" in org_int:
+                snyk_orgs[org["slug"]] = dict()
+                snyk_orgs[org["slug"]]["orgId"] = org["id"]
+                snyk_orgs[org["slug"]]["integrations"] = org_int
+
+    if s.conf.write_text(yaml.safe_dump(conf)):
+        typer.echo(f"Wrote Snyk Syncconfiguration to: {s.conf.as_posix()}", err=True)
+
+    if s.snyk_orgs_file.write_text(yaml.safe_dump(snyk_orgs)):
+        typer.echo(f"Wrote Snyk Orgs data for the Group: {my_group_slug} to: {s.snyk_orgs_file.as_posix()}", err=True)
+
+
+def load_conf():
+
+    global s
+    global watchlist
+
+    conf_file = yopen(s.conf)
+
+    # below are two settings we actually want to load from the file only, since they are too complicated to load other ways
+
+    s.github_orgs = conf_file["github_orgs"]
+
+    s.snyk_groups = conf_file["snyk"]["groups"]
+
+    s.snyk_orgs = yopen(s.snyk_orgs_file)
+
+    watchlist.default_org = s.default_org
+    watchlist.snyk_orgs = s.snyk_orgs
+
+    # Load our per group service token, which are set as custom env paths
+
+    for group in s.snyk_groups:
+        env_var = group["token_env_name"]
+        if env_var in environ.keys():
+            group["snyk_token"] = environ[env_var]
+        else:
+            raise Exception(f"Environment Variable {env_var} is not set properly and required")
 
 
 if __name__ == "__main__":

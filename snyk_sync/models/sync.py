@@ -1,10 +1,14 @@
 import json
+import yaml
 
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
-from pydantic import BaseModel, UUID4, error_wrappers
+from pydantic import BaseModel, UUID4, error_wrappers, validator
 from github import Repository
+
+from pathlib import Path
+
 
 from pprint import pprint
 
@@ -12,8 +16,8 @@ from .repositories import Project, Repo, Branch
 
 
 class Settings(BaseModel):
-    cache_dir: Optional[Path]
     conf: Optional[Path]
+    cache_dir: Optional[Path]
     targets_dir: Optional[Path]
     tags_dir: Optional[Path]
     snyk_orgs: Dict = dict()
@@ -23,6 +27,7 @@ class Settings(BaseModel):
     default_org_id: Optional[UUID4]
     default_int_id: Optional[UUID4]
     snyk_groups: Optional[List[dict]]
+    snyk_group: Optional[UUID4]
     snyk_token: Optional[UUID4]
     github_token: Optional[str]
     github_orgs: List[str] = list()
