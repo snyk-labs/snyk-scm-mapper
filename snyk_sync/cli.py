@@ -192,7 +192,7 @@ def sync(
     # flush the watchlist
     # watchlist = SnykWatchList()
 
-    gh = Github(s.github_token, per_page=1)
+    gh = Github(s.github_token, per_page=100)
 
     rate_limit = RateLimit(gh)
 
