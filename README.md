@@ -18,6 +18,25 @@ Assumptions:
 - Tags are additive: Any tags specified in the `import.yaml` will be added to all projects from the same repository. If the tag already exists as an exact match, it will not be added, and existing tags not declared in `import.yaml` will not be removed. Snyk allows for duplicate Key names, so "application:database" and "application:frontend" are both valid K:V tags that could be on the same project. This is not a suggestion to do this, but pointing out it is possible.
 - Forks: Because of how GitHub's indexing works, it will not search forks. Snyk Sync uses GitHub's search functionality to detect `import.yaml` files (to keep API calls to a minimum). In order to add forks, use the `--forks` flag to have Snyk Sync search each fork individually for the `import.yaml` file. **CAUTION:** This will incur an API cost of atleast one request per fork and two if the fork contains an `import.yaml` - Snyk Sync does not have request throtlling at the moment
 
+## Topics
+
+If an Org in the snyk-orgs.yaml file includes a list of topics, any repo that has matching topics will be assigned that org instead of default. This happens before import.yaml evaluation. The orgs with the highest number of matching topics is assigned in the case of multiple orgs matching for a single repo. If there is a tie in matches, the first by alphabetical order of org name is selected.
+
+### Order of Precedence (most specific wins)
+
+If a repo has a topic matching an org's topics list, and an import.yaml listing an org, who wins? The import.yaml does.
+
+In the import.yaml, a top level org definition applies to all repos, unless a branch has an org listed.
+
+An `instance` can be considered a prefilter to the import.yaml, because it is applied to the import.yaml first, then the branch overrides are evaluated.
+
+```
+A Repo is found -> Does an org match the topics? Yes -> Change org ->
+  Does an import.yaml exist? Yes -> Evaluate for Instance ->
+  Is an Org declared? -> Change org for all listed branches ->
+  Does a branch have an org? -> Change org for specific branch
+```
+
 ## Caching
 
 If one has a large organization with many hundreds or thousands of repositories, the process of discovering all of them can be timeconsuming. In order to speed up this process, Snyk Sync builds a 'watchlist' in a cache directory (by default `cache`). It will only perform a sync (querying both GitHub and Snyk APIs) if the data is more than 60 minutes old (change with: --cache-timeout) or a sync is forced (`--sync`). This allows for the `targets` and `tags` subcommands to operate much more quickly. Depending on the size of the targets list given to snyk-api-import, it may take a long time for the project imports to complete, after which another sync should be performed and the `tags` command run to ensure any new projects that didn't exist before are now updated with their associated tags.

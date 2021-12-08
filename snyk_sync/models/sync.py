@@ -97,6 +97,13 @@ class SnykWatchList(BaseModel):
 
         branches.append(repo.default_branch)
 
+        topics = repo.get_topics()
+
+        if len(topics) > 0:
+            org_name = self.get_org_from_topics(topics)
+        else:
+            org_name = "default"
+
         if self.has_repo(repo.id):
 
             existing_repo = self.get_repo(repo.id)
@@ -109,7 +116,12 @@ class SnykWatchList(BaseModel):
 
                 existing_repo.fork = repo.fork
 
-                existing_repo.topics = repo.get_topics()
+                existing_repo.topics = topics
+
+                if org_name != "default":
+                    existing_repo.org = org_name
+
+                existing_repo.branches = branches
 
                 existing_repo.updated_at = str(repo.updated_at)
 
@@ -121,6 +133,7 @@ class SnykWatchList(BaseModel):
                     fork=repo.fork,
                     topics=repo.get_topics(),
                     id=repo.id,
+                    org=org_name,
                     branches=branches,
                     updated_at=str(repo.updated_at),
                     full_name=str(repo.full_name),
@@ -169,3 +182,28 @@ class SnykWatchList(BaseModel):
                         needs_tags.append(fix_project)
 
         return needs_tags
+
+    def get_org_from_topics(self, topics: list) -> str:
+
+        orgs_with_topics = {d: v for d, v in self.snyk_orgs.items() if "topics" in v.keys()}
+
+        if not len(orgs_with_topics) > 0:
+            return "default"
+
+        # filter and return a tuple of matching org and number of matches
+        orgs = [
+            (len([t for t in v["topics"] if t in topics]), d)
+            for d, v in orgs_with_topics.items()
+            if len([t for t in v["topics"] if t in topics]) > 0
+        ]
+
+        if not len(orgs) > 0:
+            return "default"
+
+        # sort the list by by most matches first
+        orgs.sort(reverse=True)
+
+        # get the first tuple's second element, the org name
+        org = orgs[0][1]
+
+        return org
