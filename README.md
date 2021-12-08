@@ -211,7 +211,7 @@ Naming the custom certificate bundle `custom-ca.crt` and placing it in base dire
 So in most cases:
 
 - Rename your custom certificate bundle as `custom-ca.crt`
-- Ensure `custom-ca.cert` is in the root of your config-repo
+- Ensure `custom-ca.crt` is in the root of your config-repo
 
 If you want to specify your own path to the certificate bundle, ensure that file is present before the entrypoints run, and set the following environment flags:
 
