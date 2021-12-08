@@ -1,8 +1,9 @@
 import json
 import logging
+from types import new_class
 from uuid import RESERVED_FUTURE, UUID
-from tomlkit.items import DateTime
 import yaml
+import urllib.parse
 
 import requests
 from retry.api import retry_call
@@ -91,7 +92,7 @@ class SnykV3Client(object):
             "User-Agent": user_agent,
         }
         self.api_post_headers = self.api_headers
-        self.api_post_headers["Content-Type"] = "Content-Type: application/vnd.api+json"
+        self.api_post_headers["Content-Type"] = "Content-Type: application/vnd.api+json; charset=utf-8"
         self.tries = tries
         self.backoff = backoff
         self.delay = delay
@@ -121,7 +122,7 @@ class SnykV3Client(object):
     def get(self, path: str, params: dict = {}) -> requests.Response:
 
         # path = ensure_version(path, self.V3_VERS)
-        # path = cleanup_path(path)
+        path = cleanup_path(path)
 
         if "version" not in params.keys():
             params["version"] = self.V3_VERS
@@ -133,7 +134,7 @@ class SnykV3Client(object):
             if isinstance(v, bool):
                 params[k] = str(v).lower()
 
-        url = f"{self.api_url}/{path}"
+        url = self.api_url + path
         logger.debug("GET: %s" % url)
         resp = retry_call(
             self.request,
@@ -144,10 +145,11 @@ class SnykV3Client(object):
             logger=logger,
         )
 
-        # logger.debug("RESP: %s" % resp.status_code)
-
         if not resp.ok:
             resp.raise_for_status()
+
+        logger.debug("RESP: %s" % resp.headers)
+
         return resp
 
     def get_all_pages(self, path: str, params: dict = {}) -> List:
@@ -159,6 +161,8 @@ class SnykV3Client(object):
         # this is a raw primative but a higher level module might want something that does an
         # arbitrary path + origin=foo + limit=100 url construction instead before being sent here
 
+        limit = params["limit"]
+
         data = list()
 
         page = self.get(path, params).json()
@@ -166,16 +170,25 @@ class SnykV3Client(object):
         data.extend(page["data"])
 
         while "next" in page["links"].keys():
-            next_url = page["links"]["next"]
-            page = self.get(next_url).json()
+            next_url = urllib.parse.urlsplit(page["links"]["next"])
+            query = urllib.parse.parse_qs(next_url.query)
+
+            for k, v in query.items():
+                params[k] = v
+
+            params["limit"] = limit
+
+            print(params)
+
+            page = self.get(next_url.path, params).json()
             data.extend(page["data"])
 
         return data
 
 
 def cleanup_path(path: str):
-    if path[0] == "/":
-        return path[1:]
+    if path[0] != "/":
+        return f"/{path}"
     else:
         return path
 
