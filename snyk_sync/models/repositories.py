@@ -172,6 +172,8 @@ class Repo(BaseModel):
     branches: List
     fork: bool = False
     topics: List[str] = list()
+    archived: bool = False
+    visibility: str = "public"
 
     def get_reimport(self, default_org, snyk_orgs: dict) -> List[Branch]:
         """

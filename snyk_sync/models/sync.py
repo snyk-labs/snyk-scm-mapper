@@ -97,7 +97,13 @@ class SnykWatchList(BaseModel):
 
         branches.append(repo.default_branch)
 
-        topics = repo.get_topics()
+        raw_repo = repo.__dict__["_rawData"]
+
+        topics = list(raw_repo["topics"])
+
+        visibility = str(raw_repo["visibility"])
+
+        archived = bool(raw_repo["archived"])
 
         if len(topics) > 0:
             org_name = self.get_org_from_topics(topics)
@@ -118,6 +124,10 @@ class SnykWatchList(BaseModel):
 
                 existing_repo.topics = topics
 
+                existing_repo.visibility = visibility
+
+                existing_repo.archived = archived
+
                 if org_name != "default":
                     existing_repo.org = org_name
 
@@ -131,7 +141,9 @@ class SnykWatchList(BaseModel):
                     source=tmp_repo,
                     url=repo.html_url,
                     fork=repo.fork,
-                    topics=repo.get_topics(),
+                    topics=topics,
+                    visibility=visibility,
+                    archived=archived,
                     id=repo.id,
                     org=org_name,
                     branches=branches,

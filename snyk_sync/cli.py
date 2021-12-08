@@ -1,6 +1,6 @@
 from pydantic.typing import update_field_forward_refs
 import typer
-import time
+import datetime
 import os
 import json
 import yaml
@@ -25,7 +25,9 @@ from models.repositories import Repo, Project, Tag
 from models.sync import SnykWatchList, Settings
 from models.organizations import Orgs, Org, Target
 
-from utils import yopen, jopen, search_projects, RateLimit, newer, jwrite, default_settings
+from api import RateLimit
+
+from utils import yopen, jopen, search_projects, newer, jwrite, default_settings
 
 app = typer.Typer(add_completion=False)
 
@@ -192,9 +194,11 @@ def sync(
     # flush the watchlist
     # watchlist = SnykWatchList()
 
-    gh = Github(s.github_token, per_page=100)
+    GH_PAGE_LIMIT = 100
 
-    rate_limit = RateLimit(gh)
+    gh = Github(s.github_token, per_page=GH_PAGE_LIMIT)
+
+    rate_limit = RateLimit(gh, GH_PAGE_LIMIT)
 
     client = snyk.SnykClient(
         str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1
@@ -219,10 +223,25 @@ def sync(
         gh_org = gh.get_organization(gh_org_name)
         gh_repos = gh_org.get_repos(type="all", sort="updated", direction="desc")
         gh_repos_count = gh_repos.totalCount
-        with typer.progressbar(length=gh_repos_count, label=f"Processing {gh_org_name}: ") as gh_progress:
-            for gh_repo in gh_repos:
 
-                watchlist.add_repo(gh_repo)
+        rate_limit.add_calls(gh_repos_count)
+
+        pages = gh_repos_count // GH_PAGE_LIMIT
+
+        if (gh_repos_count % GH_PAGE_LIMIT) > 0:
+            pages += 1
+
+        with typer.progressbar(
+            length=pages, label=f"Processing {gh_repos_count} repos in {gh_org_name}: "
+        ) as gh_progress:
+
+            for r in range(0, pages):
+
+                rate_limit.check()
+
+                for gh_repo in gh_repos.get_page(r):
+
+                    watchlist.add_repo(gh_repo)
 
                 gh_progress.update(1)
 
@@ -233,6 +252,8 @@ def sync(
     for gh_org in gh_orgs:
         search = f"org:{gh_org} path:.snyk.d filename:import language:yaml"
         import_repos = gh.search_code(query=search)
+        rate_limit.add_calls(import_repos.totalCount)
+        rate_limit.check("search")
         import_repos = [y for y in import_repos if y.repository.id not in exclude_list and y.name == "import.yaml"]
         import_yamls.extend(import_repos)
 
@@ -246,6 +267,9 @@ def sync(
 
     if s.forks is True and len(forks) > 0:
         typer.echo(f"Scanning {len(forks)} forks for import.yaml", err=True)
+
+        rate_limit.add_calls(len(forks) * 2)
+        rate_limit.check()
 
         with typer.progressbar(forks, label="Scanning: ") as forks_progress:
             for fork in forks_progress:
