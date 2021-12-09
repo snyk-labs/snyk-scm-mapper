@@ -55,7 +55,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk Container Monitor
-        run: snyk container monitor ghcr.io/snyk-playground/snyk-sync:${{ github.sha }} --file=Dockerfile --project-name=snyk-sync-container --org=ie-playground --target-reference=${{ github.base_ref }} --project-lifecycle=development --project-tags=gitsha=${{ github.sha }}
+        run: snyk container monitor ghcr.io/snyk-playground/snyk-sync:$GITHUB_SHA --file=Dockerfile --project-name=snyk-sync-container --org=ie-playground --project-lifecycle=development --project-tags=gitsha=$GITHUB_SHA
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Build and push
