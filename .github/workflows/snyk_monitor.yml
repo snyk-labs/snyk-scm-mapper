@@ -49,13 +49,13 @@ jobs:
           context: .
           load: true
           platforms: linux/amd64
-          tags: ghcr.io/snyk-playground/snyk-sync:${{ env.GITHUB_SHA }}
+          tags: ghcr.io/snyk-playground/snyk-sync:${{ github.sha }}
       - name: Snyk Container Test
-        run: snyk container test ghcr.io/snyk-playground/snyk-sync:${{ env.GITHUB_SHA }} --org=ie-playground --severity-threshold=critical --project-lifecycle=development
+        run: snyk container test ghcr.io/snyk-playground/snyk-sync:${{ github.sha }} --org=ie-playground --severity-threshold=critical --project-lifecycle=development
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk Container Monitor
-        run: snyk container monitor ghcr.io/snyk-playground/snyk-sync:${{ env.GITHUB_SHA }} --project-name=snyk-sync-container --org=ie-playground --target-reference=${{ env.GITHUB_REF }} --project-lifecycle=development --project-tags=gitsha=${{ env.GITHUB_SHA }}
+        run: snyk container monitor ghcr.io/snyk-playground/snyk-sync:${{ github.sha }} --project-name=snyk-sync-container --org=ie-playground --target-reference=${{ github.base_ref }} --project-lifecycle=development --project-tags=gitsha=${{ github.sha }}
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Build and push
@@ -65,5 +65,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            snyk-playground/snyk-sync:${{ env.GITHUB_SHA }}
-            ghcr.io/snyk-playground/snyk-sync:${{ env.GITHUB_SHA }}
+            snyk-playground/snyk-sync:${{ github.sha }}
+            ghcr.io/snyk-playground/snyk-sync:${{ github.sha }}
