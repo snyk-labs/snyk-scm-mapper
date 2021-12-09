@@ -206,8 +206,6 @@ class SnykV3Client(object):
 
             params["limit"] = limit
 
-            print(params)
-
             page = self.get(next_url.path, params).json()
             data.extend(page["data"])
 
