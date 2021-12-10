@@ -12,9 +12,6 @@ jobs:
         with:
           python-version: "3.9"
           architecture: "x64"
-      - name: Bootstrap poetry
-        run: |
-          curl -sL https://install.python-poetry.org | python - -y
       - name: Snyk test
         run: snyk test --org=ie-playground --file=poetry.lock --package-manager=poetry --severity-threshold=critical --project-lifecycle=development
         env:
