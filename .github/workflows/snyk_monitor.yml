@@ -28,8 +28,9 @@ jobs:
   docker_build:
     runs-on: ubuntu-latest
     needs: snyk_monitor
-    matrix:
-      platform: [linux/amd64, linux/arm64]
+    strategy:
+      matrix:
+        platform: [linux/amd64, linux/arm64]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
