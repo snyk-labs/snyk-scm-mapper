@@ -28,6 +28,9 @@ jobs:
   docker_build:
     runs-on: ubuntu-latest
     needs: snyk_monitor
+    permissions:
+      packages: write
+      contents: read
     strategy:
       matrix:
         platform: [linux/amd64, linux/arm64]
