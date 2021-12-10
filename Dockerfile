@@ -6,7 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE 1
 
 # Add jq and curl
 
-RUN apt update && apt install --no-install-recommends -y jq curl && apt-get clean
+RUN apt-get -qq update && apt-get -qq install --no-install-recommends -y jq curl
+
+RUN if [[ $(uname -m) != "x86_64" ]]; then apt-get -qq install --no-install-recommends -y gcc make gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu; fi
+
+RUN apt-get -qq clean
 
 # step one is to create a container with poetry on it
 RUN python -m pip install --quiet -U pip poetry
