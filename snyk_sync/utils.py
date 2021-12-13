@@ -32,10 +32,13 @@ def jopen(filename):
     return json.loads(data)
 
 
-def jwrite(data, filename):
+def jwrite(data, filename, minimize: bool = False):
     try:
         with open(filename, "w") as the_file:
-            the_file.write(json.dumps(data, indent=2))
+            if minimize:
+                the_file.write(json.dumps(data, separators=(",", ":")))
+            else:
+                the_file.write(json.dumps(data, indent=2))
             return True
     except:
         return False

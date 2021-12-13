@@ -447,7 +447,12 @@ def targets(
             os.mkdir(f"{s.targets_dir}")
         for targets in final_targets:
             file_name = f"{s.targets_dir}/{targets.pop('name')}.json"
-            if jwrite(targets, file_name):
+            if len(targets["targets"]) > 50:
+                minimize = True
+            else:
+                minimize = False
+
+            if jwrite(targets, file_name, minimize):
                 typer.echo(f"Wrote {file_name} Successfully", err=True)
             else:
                 typer.echo(f"Failed to Write {file_name}", err=True)
