@@ -8,8 +8,6 @@ ENV PYTHONDONTWRITEBYTECODE 1
 
 RUN apt-get -qq update && apt-get -qq install --no-install-recommends -y jq curl
 
-RUN if [[ $(uname -m) != "x86_64" ]]; then apt-get -qq install --no-install-recommends -y gcc make gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu; fi
-
 RUN apt-get -qq clean
 
 # step one is to create a container with poetry on it
@@ -42,7 +40,7 @@ COPY --from=requirements /src/requirements.txt .
 
 # now we're *just* deploying the needed packages for whatever was in the poetry setup
 RUN python -m pip install --quiet -U pip
-RUN pip install --quiet -r requirements.txt
+RUN pip install -r requirements.txt
 
 COPY scripts/entrypoint.sh /usr/local/bin/
 COPY scripts/entrypoint-api-import.sh /usr/local/bin/
