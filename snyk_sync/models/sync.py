@@ -1,16 +1,10 @@
 import json
-import yaml
 
 from pathlib import Path
 from datetime import datetime
 from typing import Optional, List, Dict
-from pydantic import BaseModel, UUID4, error_wrappers, validator
+from pydantic import BaseModel, UUID4, error_wrappers
 from github import Repository
-
-from pathlib import Path
-
-
-from pprint import pprint
 
 from .repositories import Project, Repo, Branch
 
@@ -219,3 +213,7 @@ class SnykWatchList(BaseModel):
         org = orgs[0][1]
 
         return org
+
+    # removes repositories that don't exist in github anymore
+    def prune(self, repo_ids: list):
+        self.repos = [r for r in self.repos if r.id in repo_ids]
