@@ -1,4 +1,3 @@
-from pydantic.typing import update_field_forward_refs
 import typer
 import datetime
 import os
@@ -19,15 +18,13 @@ from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
 
-from pprint import pprint
-
 from models.repositories import Repo, Project, Tag
 from models.sync import SnykWatchList, Settings
 from models.organizations import Orgs, Org, Target
 
 from api import RateLimit
 
-from utils import yopen, jopen, search_projects, newer, jwrite, default_settings
+from utils import yopen, jopen, jwrite, default_settings, load_watchlist
 
 app = typer.Typer(add_completion=False)
 
@@ -191,8 +188,10 @@ def sync(
 
     load_conf()
 
-    # flush the watchlist
-    # watchlist = SnykWatchList()
+    # either load the watchlist from disk
+    # or return an empty one if there is none
+
+    watchlist = load_watchlist(s.cache_dir)
 
     GH_PAGE_LIMIT = 100
 
@@ -219,6 +218,8 @@ def sync(
 
     typer.echo("Getting all GitHub repos", err=True)
 
+    repo_ids = []
+
     for gh_org_name in gh_orgs:
         gh_org = gh.get_organization(gh_org_name)
         gh_repos = gh_org.get_repos(type="all", sort="updated", direction="desc")
@@ -242,8 +243,11 @@ def sync(
                 for gh_repo in gh_repos.get_page(r):
 
                     watchlist.add_repo(gh_repo)
+                    repo_ids.append(gh_repo.id)
 
                 gh_progress.update(1)
+
+    watchlist.prune(repo_ids)
 
     # print(exclude_list)
     rate_limit.update(show_rate_limit)
@@ -297,7 +301,7 @@ def sync(
 
                 import_repo = watchlist.get_repo(r_id)
 
-                if import_repo:
+                if import_repo and str(import_repo.import_sha) != str(import_yaml.sha):
                     import_repo.parse_import(import_yaml, instance=s.instance)
 
     rate_limit.update(show_rate_limit)
@@ -365,13 +369,8 @@ def status():
         typer.echo(f"Cache is less than {s.cache_timeout} minutes old", err=True)
 
     typer.echo("Attempting to load cache", err=True)
-    try:
-        cache_data = jopen(f"{s.cache_dir}/data.json")
-        for r in cache_data:
-            watchlist.repos.append(Repo.parse_obj(r))
 
-    except KeyError as e:
-        typer.echo(e)
+    watchlist = load_watchlist(s.cache_dir)
 
     typer.echo("Cache loaded successfully", err=True)
 
@@ -385,6 +384,12 @@ def status():
 def targets(
     save_targets: bool = typer.Option(False, "--save", help="Write targets to disk, otherwise print to stdout"),
     force_default: bool = typer.Option(False, "--force-default", help="Forces all Org's to default"),
+    require_metadata: bool = typer.Option(
+        False, "--require-metadata", help="Only generate targets for repos containing import.yaml"
+    ),
+    include_archived: bool = typer.Option(
+        False, "--include-archived", help="Generate targets for archived repositories"
+    ),
 ):
     """
     Returns valid input for api-import to consume
@@ -403,7 +408,18 @@ def targets(
 
     target_list = []
 
-    for r in watchlist.repos:
+    if include_archived:
+        filtered_repos = watchlist.repos
+    else:
+        filtered_repos = [r for r in watchlist.repos if r.archived is not True]
+
+    if require_metadata:
+        filtered_repos = [r for r in filtered_repos if r.import_sha != ""]
+    else:
+        filtered_repos = filtered_repos
+
+    for r in filtered_repos:
+
         if r.needs_reimport(s.default_org, s.snyk_orgs):
             for branch in r.get_reimport(s.default_org, s.snyk_orgs):
                 if branch.project_count() == 0:

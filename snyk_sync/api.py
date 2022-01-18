@@ -1,24 +1,17 @@
-import json
 import logging
-from types import new_class
-from uuid import RESERVED_FUTURE, UUID
-import yaml
 import urllib.parse
 
 import requests
 import time
 from retry.api import retry_call
 
-from pathlib import Path
-from pprint import pprint
-from dataclasses import dataclass
 from datetime import datetime
 
-from github import Github, Repository
+from github import Github
 
-from typing import Optional, List, Optional, TypedDict, Tuple, Dict
+from typing import Optional, List, Optional, Dict
 
-from pydantic import BaseModel, FilePath, ValidationError, root_validator, UUID4, Field, create_model
+from pydantic import BaseModel
 
 from snyk import SnykClient
 

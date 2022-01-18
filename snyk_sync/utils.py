@@ -13,9 +13,9 @@ from pathlib import Path
 
 from uuid import UUID
 
-from os import environ
+from os import environ, path
 
-from models.sync import Settings
+from models.sync import Settings, SnykWatchList, Repo
 
 
 V3_VERS = "2021-08-20~beta"
@@ -290,3 +290,18 @@ def ensure_dir(directory: Path) -> bool:
     else:
         # the directory exists and is OK
         return True
+
+
+def load_watchlist(cache_dir: Path) -> SnykWatchList:
+    tmp_watchlist = SnykWatchList()
+
+    if path.exists(f"{cache_dir}/data.json"):
+        try:
+            cache_data = jopen(f"{cache_dir}/data.json")
+            for r in cache_data:
+                tmp_watchlist.repos.append(Repo.parse_obj(r))
+
+        except KeyError as e:
+            print(e)
+
+    return tmp_watchlist
