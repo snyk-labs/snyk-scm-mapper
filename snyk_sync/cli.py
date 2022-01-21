@@ -191,7 +191,9 @@ def sync(
     # either load the watchlist from disk
     # or return an empty one if there is none
 
-    watchlist = load_watchlist(s.cache_dir)
+    tmp_watch = load_watchlist(s.cache_dir)
+
+    watchlist.repos = tmp_watch.repos
 
     GH_PAGE_LIMIT = 100
 
@@ -402,6 +404,10 @@ def targets(
     else:
         load_conf()
 
+    tmp_watch = load_watchlist(s.cache_dir)
+
+    watchlist.repos = tmp_watch.repos
+
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
     all_orgs.load()
@@ -495,6 +501,10 @@ def tags(
         sync()
     else:
         load_conf()
+
+    tmp_watch = load_watchlist(s.cache_dir)
+
+    watchlist.repos = tmp_watch.repos
 
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
