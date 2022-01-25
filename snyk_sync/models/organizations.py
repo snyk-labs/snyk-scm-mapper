@@ -30,7 +30,7 @@ from pydantic import (
     StrictBool,
 )
 
-from utils import newer, to_camel_case, jopen
+from utils import newer, to_camel_case, jopen, update_client
 
 from .repositories import Project
 from api import SnykV3Client, v1_get_pages
@@ -347,9 +347,13 @@ class Orgs(BaseModel):
             group_id = group["id"]
             group_token = group["snyk_token"]
 
-            setattr(v1client, "token", group_token)
+            v1client = update_client(v1client, group_token)
 
-            new_orgs = v1_get_pages(f"group/{group_id}/orgs", v1client, "orgs")
+            try:
+                new_orgs = v1_get_pages(f"group/{group_id}/orgs", v1client, "orgs")
+            except:
+                print(f"Unable to load orgs from: {group['name']} with token stored at: {group['token_env_name']}")
+
             for org in new_orgs["orgs"]:
                 if len(selected_orgs) == 0 or org["id"] in selected_orgs:
                     org["group_id"] = new_orgs["id"]
@@ -361,8 +365,8 @@ class Orgs(BaseModel):
 
             snyk_token = self.get_token_for_org(org)
 
-            setattr(v1client, "token", snyk_token)
-            setattr(v3client, "token", snyk_token)
+            v1client = update_client(v1client, snyk_token)
+            v3client = update_client(v3client, snyk_token)
 
             org.refresh(v1client, v3client, origin)
 

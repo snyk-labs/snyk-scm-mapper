@@ -305,3 +305,11 @@ def load_watchlist(cache_dir: Path) -> SnykWatchList:
             print(e)
 
     return tmp_watchlist
+
+
+def update_client(old_client, token):
+    old_client.api_token = token
+    old_client.api_headers["Authorization"] = f"token {old_client.api_token}"
+    old_client.api_post_headers = old_client.api_headers
+
+    return old_client
