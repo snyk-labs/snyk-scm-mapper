@@ -24,7 +24,7 @@ from models.organizations import Orgs, Org, Target
 
 from api import RateLimit
 
-from utils import yopen, jopen, jwrite, default_settings, load_watchlist
+from utils import yopen, jopen, jwrite, default_settings, load_watchlist, update_client
 
 app = typer.Typer(add_completion=False)
 
@@ -206,7 +206,7 @@ def sync(
     )
 
     v3client = api.SnykV3Client(
-        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1
+        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=3
     )
 
     if s.github_orgs is not None:
@@ -533,7 +533,7 @@ def tags(
 
                 snyk_token = all_orgs.get_token_for_group(g_tags["name"])
 
-                setattr(v1client, "token", snyk_token)
+                update_client(v1client, snyk_token)
 
                 for p in g_tags["tags"]:
                     p_path = f"org/{p['org_id']}/project/{p['project_id']}"

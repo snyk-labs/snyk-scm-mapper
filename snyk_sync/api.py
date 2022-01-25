@@ -15,6 +15,8 @@ from pydantic import BaseModel
 
 from snyk import SnykClient
 
+from time import sleep
+
 from __version__ import __version__
 
 logger = logging.getLogger(__name__)
@@ -136,8 +138,15 @@ class SnykV3Client(object):
             headers=headers,
         )
 
-        if not resp or resp.status_code >= requests.codes.server_error:
+        if resp.status_code == 429:
+            logger.debug("RESP: %s" % resp.headers)
+            print("Hit 429 Timeout, Sleeping 60s before erroring out")
+            sleep(60)
             resp.raise_for_status()
+        elif not resp or resp.status_code >= requests.codes.server_error:
+            logger.debug("RESP: %s" % resp.headers)
+            resp.raise_for_status()
+
         return resp
 
     def get(self, path: str, params: dict = {}) -> requests.Response:
