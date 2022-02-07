@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# This is a script meant to run a full sync
+# This is a script meant to run a full sync in the context of an
+# aws instance with sync installed in a python venv
 
 declare -x HOMEDIR="/home/ec2-user/"
 declare -x BASE_PATH="${HOMEDIR}snyk-sync/"
@@ -30,7 +31,7 @@ function setup_crontab(){
     if ! grep -e "#snyk-sync-cron" temp_cron; then
         echo "#snyk-sync-cron" >> temp_cron
         cat "${SYNC_WORKING_DIR}crontab-entry" >> temp_cron
-        crontab -u ec2-user temp_cron
+        crontab temp_cron
     fi
 
     cd "${HERE}" || exit
@@ -65,7 +66,7 @@ function perform_import(){
 }
 
 
-if [[ -f SYNC_WORKING_DIR="${SYNC_WORKING_DIR}cron.sh" ]]; then
+if [[ -f "${SYNC_WORKING_DIR}cron.sh" ]]; then
     /bin/bash "${SYNC_WORKING_DIR}cron.sh"
 else
 
