@@ -20,6 +20,7 @@ else
 fi
 
 function setup_crontab(){
+    HERE=$PWD
     CRON_ENTRY=$(mktemp -d)
 
     cd "${CRON_ENTRY}" || exit
@@ -32,27 +33,30 @@ function setup_crontab(){
         crontab -u ec2-user temp_cron
     fi
 
-    cd "${BASE_PATH}" || exit
+    cd "${HERE}" || exit
 
     rm -rf "${CRON_ENTRY}"
 
 }
 
 function perform_sync(){
+    cd "${SYNC_WORKING_DIR}" || exit
     "${PYTHON}" "${SNYK_SYNC}" sync
 }
 
 function generate_targets(){
+    cd "${SYNC_WORKING_DIR}" || exit
     "${PYTHON}" "${SNYK_SYNC}" targets --save 
 }
 
 function update_tags(){
+    cd "${SYNC_WORKING_DIR}" || exit
     "${PYTHON}" "${SNYK_SYNC}" tags --update
 }
 
 function perform_import(){
 
-    readarray -t import_scripts < <(find "${SYNC_WORKING_DIR}scripts/imports" -type f -name "\*.sh")
+    readarray -t import_scripts < <(ls ${SYNC_WORKING_DIR}scripts/imports/*.sh)
 
     for import_script in "${import_scripts[@]}"; do
         /bin/bash "${import_script}"
@@ -64,6 +68,8 @@ function perform_import(){
 if [[ -f SYNC_WORKING_DIR="${SYNC_WORKING_DIR}cron.sh" ]]; then
     /bin/bash "${SYNC_WORKING_DIR}cron.sh"
 else
+
+    cd ${SYNC_WORKING_DIR} || exit
 
     setup_crontab
 
