@@ -20,6 +20,8 @@ from uuid import UUID
 
 from snyk.client import SnykClient
 
+from snyk.errors import SnykHTTPError
+
 from models.repositories import Repo, Project, Tag
 from models.sync import SnykWatchList, Settings
 from models.organizations import Orgs, Org, Target
@@ -546,7 +548,7 @@ def tags(
                         for tag in tags_to_post:
                             try:
                                 v1client.post(p_tag_path, tag)
-                            except snyk.errors.SnykHTTPError as e:
+                            except SnykHTTPError as e:
                                 if e.code == 422:
                                     typer.echo(f"Error: Tag for project already exists")
                                 else:
