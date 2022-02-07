@@ -1,36 +1,21 @@
 import json
-from uuid import RESERVED_FUTURE, UUID, uuid4
-import snyk
+from uuid import UUID
 from snyk.client import SnykClient
-from tomlkit.api import boolean
-from tomlkit.items import DateTime
-import yaml
-
-import typer
 import os
 import logging
-from pathlib import Path
-from pprint import pp, pprint
-from dataclasses import dataclass
-from datetime import datetime
 
-from github import Github, Repository
+from datetime import datetime
 
 from typing import Optional, Dict, List
 
 from pydantic import (
     BaseModel,
-    FilePath,
-    ValidationError,
-    root_validator,
     UUID4,
     Field,
-    create_model,
     validator,
-    StrictBool,
 )
 
-from utils import newer, to_camel_case, jopen, update_client
+from utils import to_camel_case, jopen, update_client
 
 from .repositories import Project
 from api import SnykV3Client, v1_get_pages
@@ -133,9 +118,7 @@ class Org(BaseModel):
     def int_list(self):
         return list(self.integrations.keys())
 
-    def refresh_targets(
-        self, client: SnykV3Client, origin: str = None, exclude_empty: boolean = True, limit: int = 100
-    ):
+    def refresh_targets(self, client: SnykV3Client, origin: str = None, exclude_empty: bool = True, limit: int = 100):
         """
         Retrieves all the targets from this org object, using the provided client
         Optionally matches on 'origin'

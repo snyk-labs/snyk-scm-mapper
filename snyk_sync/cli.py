@@ -3,7 +3,7 @@ import datetime
 import os
 import json
 import yaml
-import snyk
+
 import api
 import logging
 
@@ -17,6 +17,8 @@ from github import Github, Repository
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
+
+from snyk.client import SnykClient
 
 from models.repositories import Repo, Project, Tag
 from models.sync import SnykWatchList, Settings
@@ -201,9 +203,7 @@ def sync(
 
     rate_limit = RateLimit(gh, GH_PAGE_LIMIT)
 
-    client = snyk.SnykClient(
-        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1
-    )
+    client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1)
 
     v3client = api.SnykV3Client(
         str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=3
@@ -493,9 +493,7 @@ def tags(
     global s
     global watchlist
 
-    v1client = snyk.SnykClient(
-        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=1, delay=1
-    )
+    v1client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=1, delay=1)
 
     if status() == False:
         sync()
@@ -584,7 +582,7 @@ def autoconf(
     """
     global s
 
-    client = snyk.SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
+    client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
 
     conf = dict()
     conf["schema"] = 2
