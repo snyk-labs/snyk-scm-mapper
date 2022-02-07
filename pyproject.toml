@@ -5,7 +5,7 @@ description = "A tool to sync Snyk projects with GitHub repos"
 authors = ["Chris Barker <chris.barker@snyk.io>"]
 
 [tool.poetry.dependencies]
-python = "3.9.10"
+python = "^3.7"
 pysnyk = "^0.6.2"
 PyGithub = "^1.55"
 click = "^8.0.1"
