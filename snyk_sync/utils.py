@@ -1,3 +1,4 @@
+from cmath import exp
 import json
 from logging import exception, raiseExceptions
 import yaml
@@ -299,7 +300,10 @@ def load_watchlist(cache_dir: Path) -> SnykWatchList:
         try:
             cache_data = jopen(f"{cache_dir}/data.json")
             for r in cache_data:
-                tmp_watchlist.repos.append(Repo.parse_obj(r))
+                try:
+                    tmp_watchlist.repos.append(Repo.parse_obj(r))
+                except Exception as e:
+                    exception(f"Error {e} attempting to parse {r}")
 
         except KeyError as e:
             print(e)
