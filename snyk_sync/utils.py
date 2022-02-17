@@ -159,7 +159,7 @@ def search_projects(base_name, origin, client, snyk_token, org_in: dict):
     org["slug"] = org_in.keys()[0]
 
     query = {"filters": {"origin": origin, "name": base_name}}
-    path = f"org/{org_id}/projects"
+    path = f"org/{org['id']}/projects"
 
     return json.loads(client.post(path, query).text)
 

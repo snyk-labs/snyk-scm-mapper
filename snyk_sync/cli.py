@@ -28,7 +28,7 @@ from models.organizations import Orgs, Org, Target
 
 from api import RateLimit
 
-from utils import yopen, jopen, jwrite, default_settings, load_watchlist, update_client
+from utils import yopen, jopen, jwrite, jprint, default_settings, load_watchlist, update_client
 
 app = typer.Typer(add_completion=False)
 
@@ -536,10 +536,22 @@ def tags(
                 update_client(v1client, snyk_token)
 
                 for p in g_tags["tags"]:
+
+                    # v1 api for tags only accepts strings for tag value
+                    # this forces everything to string
+                    for t in p["tags"]:
+                        for k in t:
+                            if type(t[k]) is not str:
+                                t[k] = str(t[k])
+
                     p_path = f"org/{p['org_id']}/project/{p['project_id']}"
                     p_tag_path = f"{p_path}/tags"
 
-                    p_live = json.loads(v1client.get(p_path).text)
+                    try:
+                        p_live = v1client.get(p_path).json()
+                    except SnykHTTPError as e:
+                        typer.echo(f"Error: retrieving project path: {p_path} error:\n{e}")
+                        break
 
                     tags_to_post = [t for t in p["tags"] if t not in p_live["tags"]]
 
