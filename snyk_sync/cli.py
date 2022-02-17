@@ -395,7 +395,7 @@ def targets(
         False, "--include-archived", help="Generate targets for archived repositories"
     ),
     force_refresh: bool = typer.Option(
-        False, "--force-refresh", help="Ignore if a target already has targets and force a reimport"
+        False, "--force-refresh", help="Ignore if a target already has projects in snyk and force a reimport"
     ),
 ):
     """
