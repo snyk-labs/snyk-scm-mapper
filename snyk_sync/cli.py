@@ -394,6 +394,9 @@ def targets(
     include_archived: bool = typer.Option(
         False, "--include-archived", help="Generate targets for archived repositories"
     ),
+    force_refresh: bool = typer.Option(
+        False, "--force-refresh", help="Ignore if a target already has projects in snyk and force a reimport"
+    ),
 ):
     """
     Returns valid input for api-import to consume
@@ -428,9 +431,9 @@ def targets(
 
     for r in filtered_repos:
 
-        if r.needs_reimport(s.default_org, s.snyk_orgs):
+        if r.needs_reimport(s.default_org, s.snyk_orgs) or force_refresh:
             for branch in r.get_reimport(s.default_org, s.snyk_orgs):
-                if branch.project_count() == 0:
+                if branch.project_count() == 0 or force_refresh:
 
                     if force_default:
                         org_id = s.snyk_orgs[s.default_org]["orgId"]
