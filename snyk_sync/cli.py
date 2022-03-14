@@ -22,9 +22,8 @@ from snyk.client import SnykClient
 
 from snyk.errors import SnykHTTPError
 
-from models.repositories import Repo, Project, Tag
 from models.sync import SnykWatchList, Settings
-from models.organizations import Orgs, Org, Target
+from models.organizations import Orgs
 
 from api import RateLimit
 
@@ -207,8 +206,13 @@ def sync(
 
     client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1)
 
-    v3client = api.SnykV3Client(
-        str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=3
+    v3client = SnykClient(
+        str(s.snyk_token),
+        version="2022-02-16~experimental",
+        url="https://api.snyk.io/rest",
+        user_agent=f"pysnyk/snyk_services/sync/{__version__}",
+        tries=2,
+        delay=3,
     )
 
     if s.github_orgs is not None:

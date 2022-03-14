@@ -18,7 +18,7 @@ from pydantic import (
 from utils import to_camel_case, jopen, update_client
 
 from .repositories import Project
-from api import SnykV3Client, v1_get_pages
+from api import v1_get_pages
 
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ class Org(BaseModel):
     def int_list(self):
         return list(self.integrations.keys())
 
-    def refresh_targets(self, client: SnykV3Client, origin: str = None, exclude_empty: bool = True, limit: int = 100):
+    def refresh_targets(self, client: SnykClient, origin: str = None, exclude_empty: bool = True, limit: int = 100):
         """
         Retrieves all the targets from this org object, using the provided client
         Optionally matches on 'origin'
@@ -128,7 +128,7 @@ class Org(BaseModel):
 
         path = f"orgs/{self.id}/targets"
 
-        targets = client.get_all_pages(path, params)
+        targets = client.get_v3_pages(path, params)
 
         for target in targets:
             new_target = Target.parse_obj(target)
@@ -136,7 +136,7 @@ class Org(BaseModel):
             new_target.org_slug = self.slug
             self.add_target(new_target)
 
-    def refresh_projects(self, client: SnykV3Client, origin: str = None, target: UUID4 = None, limit: int = 100):
+    def refresh_projects(self, client: SnykClient, origin: str = None, target: UUID4 = None, limit: int = 100):
         """
         Retrieves all the projects from this org object, using the provided client
         Optionally matches on 'origin' and/or target
@@ -145,7 +145,7 @@ class Org(BaseModel):
 
         path = f"orgs/{self.id}/projects"
 
-        projects = client.get_all_pages(path, params)
+        projects = client.get_v3_pages(path, params)
 
         for project in projects:
             project["org_id"] = self.id
@@ -178,7 +178,7 @@ class Org(BaseModel):
     def refresh(
         self,
         v1client: SnykClient,
-        v3client: SnykV3Client,
+        v3client: SnykClient,
         origin: str = None,
         target: UUID4 = None,
     ):
@@ -325,7 +325,7 @@ class Orgs(BaseModel):
     cache: str = ""
     groups: List[dict] = list()
 
-    def refresh_orgs(self, v1client: SnykClient, v3client: SnykV3Client, origin: str = None, selected_orgs: list = []):
+    def refresh_orgs(self, v1client: SnykClient, v3client: SnykClient, origin: str = None, selected_orgs: list = []):
         for group in self.groups:
             group_id = group["id"]
             group_token = group["snyk_token"]
