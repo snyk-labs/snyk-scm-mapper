@@ -45,7 +45,7 @@ RUN pip install -r requirements.txt
 COPY scripts/entrypoint.sh /usr/local/bin/
 COPY scripts/entrypoint-api-import.sh /usr/local/bin/
 COPY scripts/rate_limits.sh /usr/local/bin/
-COPY tests/rate_limit_debug.py /usr/local/bin/
+COPY scripts/rate_limit_debug.py /usr/local/bin/
 
 RUN chmod +x /usr/local/bin/*
 
