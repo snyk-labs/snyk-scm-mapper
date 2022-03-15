@@ -1,23 +1,13 @@
 import logging
-import urllib.parse
-
-import requests
 import time
-from retry.api import retry_call
-
 from datetime import datetime
-
-from github import Github
-
-from typing import Optional, List, Optional, Dict
-
-from pydantic import BaseModel
-
-from snyk import SnykClient
-
-from time import sleep
+from typing import Dict
 
 from __version__ import __version__
+from github import Github
+from pydantic import BaseModel
+from snyk import SnykClient  # type: ignore
+
 
 logger = logging.getLogger(__name__)
 

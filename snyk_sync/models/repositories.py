@@ -1,14 +1,13 @@
-import json
-import yaml
-
 from datetime import datetime
-
-
 from typing import List
+from typing import Optional
 
-from pydantic import BaseModel, UUID4, Field, validator
-
+import yaml
 from github import ContentFile
+from pydantic import UUID4
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import validator
 
 
 class Source(BaseModel):
@@ -46,7 +45,7 @@ class Project(BaseModel):
     target: str = Field(alias="relationships")
     target_path: str = Field(alias="attributes")
     repo_name: str = ""
-    repo_id: int = None
+    repo_id: Optional[int] = None
 
     @validator("name", "origin", "type", "status", "branch", pre=True)
     def validate_strings(cls, value, values, config, field):

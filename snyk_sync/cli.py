@@ -1,33 +1,37 @@
-import typer
-import datetime
-import os
 import json
-import yaml
-
-import api
 import logging
-
-
-from __version__ import __version__
-
+import os
+from datetime import datetime as dt
+from datetime import timedelta
 from os import environ
-
 from pathlib import Path
-from github import Github, Repository
-from datetime import datetime, timedelta
+from typing import Any
+from typing import Dict
+from typing import List
 from typing import Optional
 from uuid import UUID
 
-from snyk.client import SnykClient
-
-from snyk.errors import SnykHTTPError
-
-from models.sync import SnykWatchList, Settings
-from models.organizations import Orgs
-
+import api
+import typer
+import yaml
+from __version__ import __version__
 from api import RateLimit
+from github import Github
+from github.ContentFile import ContentFile
+from github.PaginatedList import PaginatedList
+from models.organizations import Orgs
+from models.repositories import Repo
+from models.sync import Settings
+from models.sync import SnykWatchList
+from snyk.client import SnykClient
+from snyk.errors import SnykHTTPError
+from utils import default_settings
+from utils import jopen
+from utils import jwrite
+from utils import load_watchlist
+from utils import update_client
+from utils import yopen
 
-from utils import yopen, jopen, jwrite, jprint, default_settings, load_watchlist, update_client
 
 app = typer.Typer(add_completion=False)
 
@@ -185,7 +189,6 @@ def sync(
     """
 
     global watchlist
-    global s
 
     typer.echo("Sync starting", err=True)
 
@@ -194,7 +197,7 @@ def sync(
     # either load the watchlist from disk
     # or return an empty one if there is none
 
-    tmp_watch = load_watchlist(s.cache_dir)
+    tmp_watch: SnykWatchList = load_watchlist(s.cache_dir)
 
     watchlist.repos = tmp_watch.repos
 
@@ -222,11 +225,11 @@ def sync(
 
     rate_limit.update(show_rate_limit)
 
-    exclude_list = []
+    exclude_list: list = []
 
     typer.echo("Getting all GitHub repos", err=True)
 
-    repo_ids = []
+    repo_ids: list = []
 
     for gh_org_name in gh_orgs:
         gh_org = gh.get_organization(gh_org_name)
@@ -244,11 +247,11 @@ def sync(
             length=pages, label=f"Processing {gh_repos_count} repos in {gh_org_name}: "
         ) as gh_progress:
 
-            for r in range(0, pages):
+            for r_int in range(0, pages):
 
                 rate_limit.check()
 
-                for gh_repo in gh_repos.get_page(r):
+                for gh_repo in gh_repos.get_page(r_int):
 
                     watchlist.add_repo(gh_repo)
                     repo_ids.append(gh_repo.id)
@@ -260,14 +263,16 @@ def sync(
     # print(exclude_list)
     rate_limit.update(show_rate_limit)
 
-    import_yamls = []
+    import_yamls: list = []
     for gh_org in gh_orgs:
         search = f"org:{gh_org} path:.snyk.d filename:import language:yaml"
-        import_repos = gh.search_code(query=search)
+        import_repos: PaginatedList[ContentFile] = gh.search_code(query=search)
         rate_limit.add_calls(import_repos.totalCount)
         rate_limit.check("search")
-        import_repos = [y for y in import_repos if y.repository.id not in exclude_list and y.name == "import.yaml"]
-        import_yamls.extend(import_repos)
+        filtered_repos: List = [
+            y for y in import_repos if y.repository.id not in exclude_list and y.name == "import.yaml"
+        ]
+        import_yamls.extend(filtered_repos)
 
     rate_limit.update(show_rate_limit)
 
@@ -326,10 +331,10 @@ def sync(
     all_orgs.save()
 
     typer.echo("Scanning Snyk for projects originating from GitHub Enterprise Repos", err=True)
-    for r in watchlist.repos:
-        found_projects = all_orgs.find_projects_by_repo(r.full_name, r.id)
+    for repo in watchlist.repos:
+        found_projects = all_orgs.find_projects_by_repo(repo.full_name, repo.id)
         for p in found_projects:
-            r.add_project(p)
+            repo.add_project(p)
 
     watchlist.save(cachedir=str(s.cache_dir))
     typer.echo("Sync completed", err=True)
@@ -361,7 +366,7 @@ def status():
     else:
         return False
 
-    last_sync = datetime.strptime(sync_data["last_sync"], "%Y-%m-%dT%H:%M:%S.%f")
+    last_sync = dt.strptime(sync_data["last_sync"], "%Y-%m-%dT%H:%M:%S.%f")
 
     in_sync = True
 
@@ -370,7 +375,7 @@ def status():
     else:
         timeout = float(str(s.cache_timeout))
 
-    if last_sync < datetime.utcnow() - timedelta(minutes=timeout):
+    if last_sync < dt.utcnow() - timedelta(minutes=timeout):
         typer.echo("Cache is out of date and needs to be updated", err=True)
         in_sync = False
     else:
@@ -413,7 +418,7 @@ def targets(
     else:
         load_conf()
 
-    tmp_watch = load_watchlist(s.cache_dir)
+    tmp_watch: SnykWatchList = load_watchlist(s.cache_dir)
 
     watchlist.repos = tmp_watch.repos
 
@@ -605,7 +610,7 @@ def autoconf(
 
     client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
 
-    conf = dict()
+    conf: Dict[Any, Any] = dict()
     conf["schema"] = 2
     conf["github_orgs"] = [str(githuborg)]
     conf["snyk"] = dict()
@@ -637,7 +642,7 @@ def autoconf(
 
     group_orgs = api.v1_get_pages(f"group/{my_group_id}/orgs", client, "orgs")
 
-    snyk_orgs = dict()
+    snyk_orgs: Dict[Any, Any] = dict()
 
     with typer.progressbar(group_orgs["orgs"], label="Retrieving every Orgs integration details: ") as orgs:
         for org in orgs:

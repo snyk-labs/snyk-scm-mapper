@@ -1,22 +1,24 @@
-from cmath import exp
 import json
-from logging import exception, raiseExceptions
-import yaml
-import requests
-
-
-from typer import Context
-
-from retry.api import retry_call
 from datetime import datetime
-from github import Github, Repository
+from logging import exception
+from os import environ
+from os import path
 from pathlib import Path
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import Optional
+from typing import Union
+from typing import cast
 
-from uuid import UUID
-
-from os import environ, path
-
-from models.sync import Settings, SnykWatchList, Repo
+import requests
+import yaml
+from github import Github
+from models.sync import Repo
+from models.sync import Settings
+from models.sync import SnykWatchList
+from retry.api import retry_call
+from typer import Context
 
 
 V3_VERS = "2021-08-20~beta"
@@ -129,7 +131,7 @@ def get_org_projects(org: dict, token: str) -> dict:
         first_resp = v3_get(f"orgs/{org['id']}/projects?version={V3_VERS}", token)
     except Exception as e:
         print(f"{org['id']} project lookup failed with {e}")
-        orgs_resp = {"data": []}
+        orgs_resp: Dict = {"data": []}
         return orgs_resp
 
     orgs_resp = first_resp.json()
@@ -153,10 +155,10 @@ def get_org_projects(org: dict, token: str) -> dict:
 
 def search_projects(base_name, origin, client, snyk_token, org_in: dict):
 
-    org = dict()
+    org: Dict = dict()
 
     org["id"] = org_in["orgId"]
-    org["slug"] = org_in.keys()[0]
+    org["slug"] = list(org_in)[0]
 
     query = {"filters": {"origin": origin, "name": base_name}}
     path = f"org/{org['id']}/projects"
@@ -171,7 +173,9 @@ def to_camel_case(snake_str):
     return components[0] + "".join(x.title() for x in components[1:])
 
 
-def default_settings(name: str, value: str, default: str, context: Context) -> Settings:
+def default_settings(
+    name: Optional[str], value: str, default: Union[Any, Callable[[], Any], None], context: Context
+) -> Settings:
     """
     We want a self / auto configuring experience for Snyk Sync, but also allow for options to be passed from ENV, CLI, OR a config file.
     CLI overrides ENV, and typer handles that for us. But we want CLI and ENV to override the config file, so we need to load that value
@@ -208,12 +212,10 @@ def default_settings(name: str, value: str, default: str, context: Context) -> S
     else:
         auto_conf = True
 
+    s: dict = {}
+
     if not auto_conf:
         s = yopen(conf_file)
-    else:
-        s = {}
-
-    s: dict
 
     # here we return whatever we find in the conf file
     if name in s.keys():
@@ -232,8 +234,9 @@ def default_settings(name: str, value: str, default: str, context: Context) -> S
         return value
 
     # our directories are always 'dirname'_dir
-    if "_dir" in name:
-        dirname = name.split("_")[0]
+    if "_dir" in str(name):
+
+        dirname: str = str(name).split("_")[0]
 
         the_dir_path = gen_path(conf_file, dirname)
 
