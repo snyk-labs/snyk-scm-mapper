@@ -42,7 +42,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk monitor
-        run: snyk monitor --org=ie-playground --file=poetry.lock --package-manager=poetry --project-lifecycle=development
+        run: snyk monitor --org=ie-playground --file=poetry.lock --package-manager=poetry --project-lifecycle=development --tags=app=snyk-sync
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
   docker_build:
@@ -80,7 +80,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk Container Monitor
-        run: snyk container monitor ghcr.io/snyk-playground/snyk-sync:$GITHUB_SHA --platform=${{matrix.platform}} --file=Dockerfile --project-name=snyk-sync-container-${{matrix.platform}} --org=ie-playground --project-lifecycle=development --project-tags=gitsha=$GITHUB_SHA
+        run: snyk container monitor ghcr.io/snyk-playground/snyk-sync:$GITHUB_SHA --platform=${{matrix.platform}} --file=Dockerfile --org=ie-playground --project-lifecycle=development --tags=gitsha=$GITHUB_SHA,app=snyk-sync
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Build and push
