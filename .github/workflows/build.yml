@@ -5,6 +5,29 @@ on:
       - main
   workflow_dispatch:
 jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.9
+
+      - name: Install Poetry
+        run: curl -sSL https://install.python-poetry.org | python3 -
+
+      - name: Install dependencies
+        run: $HOME/.local/bin/poetry install -v
+        env:
+          POETRY_VIRTUALENVS_IN_PROJECT: true
+
+      - name: Run pytest
+        run: |
+          source .venv/bin/activate
+          $HOME/.local/bin/poetry run pytest
   snyk_monitor:
     runs-on: ubuntu-latest
     steps:
@@ -18,13 +41,23 @@ jobs:
         run: snyk test --org=ie-playground --file=poetry.lock --package-manager=poetry --severity-threshold=critical --project-lifecycle=development
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Install Poetry
+        run: curl -sSL https://install.python-poetry.org | python3 -
+      - name: Install dependencies
+        run: $HOME/.local/bin/poetry install -v
+        env:
+          POETRY_VIRTUALENVS_IN_PROJECT: true
+      - name: Run pytest
+        run: |
+          source .venv/bin/activate
+          $HOME/.local/bin/poetry run pytest
       - name: Snyk monitor
         run: snyk monitor --org=ie-playground --file=poetry.lock --package-manager=poetry --project-lifecycle=development
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
   docker_build:
     runs-on: ubuntu-latest
-    needs: snyk_monitor
+    needs: [snyk_monitor, pytest]
     permissions:
       packages: write
       contents: read

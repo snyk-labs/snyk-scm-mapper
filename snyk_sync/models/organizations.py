@@ -1,24 +1,23 @@
 import json
-from uuid import UUID
-from snyk.client import SnykClient
-import os
 import logging
-
+import os
 from datetime import datetime
+from typing import Dict
+from typing import List
+from typing import Optional
+from uuid import UUID
 
-from typing import Optional, Dict, List
-
-from pydantic import (
-    BaseModel,
-    UUID4,
-    Field,
-    validator,
-)
-
-from utils import to_camel_case, jopen, update_client
+from api import v1_get_pages
+from pydantic import UUID4
+from pydantic import BaseModel
+from pydantic import Field
+from pydantic import validator
+from snyk.client import SnykClient
+from utils import jopen
+from utils import to_camel_case
+from utils import update_client
 
 from .repositories import Project
-from api import SnykV3Client, v1_get_pages
 
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,7 @@ class Target(BaseModel):
         allow_population_by_field_name = True
 
     id: UUID4
-    org_id: UUID4 = None
+    org_id: Optional[UUID4] = None
     org_slug: str = ""
     name: str = Field(alias="attributes")
     origin: str = Field(alias="attributes")
@@ -94,15 +93,15 @@ class Org(BaseModel):
     group_id: UUID4
     group_name: str
     origins: List[str] = list()
-    last_updated: datetime = datetime.isoformat(datetime.utcnow())
+    last_updated: str = datetime.isoformat(datetime.utcnow())
     #       "name": "myDefaultOrg",
     #  "id": "689ce7f9-7943-4a71-b704-2ba575f01089",
     #  "slug": "my-default-org",
     #  "url": "https://api.snyk.io/org/default-org",
     #  "created": "2021-06-07T00:00:00.000Z"
 
-    def id(self):
-        return self.orgId
+    # def id(self):
+    #     return self.orgId
 
     def has(self, item):
         return item in self.integrations
@@ -118,7 +117,7 @@ class Org(BaseModel):
     def int_list(self):
         return list(self.integrations.keys())
 
-    def refresh_targets(self, client: SnykV3Client, origin: str = None, exclude_empty: bool = True, limit: int = 100):
+    def refresh_targets(self, client: SnykClient, origin: str = None, exclude_empty: bool = True, limit: int = 100):
         """
         Retrieves all the targets from this org object, using the provided client
         Optionally matches on 'origin'
@@ -128,7 +127,7 @@ class Org(BaseModel):
 
         path = f"orgs/{self.id}/targets"
 
-        targets = client.get_all_pages(path, params)
+        targets = client.get_v3_pages(path, params)
 
         for target in targets:
             new_target = Target.parse_obj(target)
@@ -136,7 +135,7 @@ class Org(BaseModel):
             new_target.org_slug = self.slug
             self.add_target(new_target)
 
-    def refresh_projects(self, client: SnykV3Client, origin: str = None, target: UUID4 = None, limit: int = 100):
+    def refresh_projects(self, client: SnykClient, origin: str = None, target: UUID4 = None, limit: int = 100):
         """
         Retrieves all the projects from this org object, using the provided client
         Optionally matches on 'origin' and/or target
@@ -145,7 +144,7 @@ class Org(BaseModel):
 
         path = f"orgs/{self.id}/projects"
 
-        projects = client.get_all_pages(path, params)
+        projects = client.get_v3_pages(path, params)
 
         for project in projects:
             project["org_id"] = self.id
@@ -178,7 +177,7 @@ class Org(BaseModel):
     def refresh(
         self,
         v1client: SnykClient,
-        v3client: SnykV3Client,
+        v3client: SnykClient,
         origin: str = None,
         target: UUID4 = None,
     ):
@@ -188,7 +187,7 @@ class Org(BaseModel):
         self.refresh_integrations(v1client)
         self.last_updated = datetime.isoformat(datetime.utcnow())
 
-    def get_target_info(self, id: UUID) -> Target:
+    def get_target_info(self, id: UUID) -> Optional[Target]:
 
         found_target = [t for t in self.targets if str(t.id) == str(id)]
 
@@ -325,7 +324,7 @@ class Orgs(BaseModel):
     cache: str = ""
     groups: List[dict] = list()
 
-    def refresh_orgs(self, v1client: SnykClient, v3client: SnykV3Client, origin: str = None, selected_orgs: list = []):
+    def refresh_orgs(self, v1client: SnykClient, v3client: SnykClient, origin: str = None, selected_orgs: list = []):
         for group in self.groups:
             group_id = group["id"]
             group_token = group["snyk_token"]
@@ -434,9 +433,9 @@ class Orgs(BaseModel):
 
     def get_token_for_group(self, group: str) -> str:
 
-        group = [g for g in self.groups if g["name"] == group]
+        group_tokens = [g for g in self.groups if g["name"] == group]
 
-        snyk_token = group[0]["snyk_token"]
+        snyk_token = group_tokens[0]["snyk_token"]
 
         return snyk_token
 

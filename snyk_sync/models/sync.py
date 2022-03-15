@@ -1,12 +1,19 @@
 import json
-
-from pathlib import Path
 from datetime import datetime
-from typing import Optional, List, Dict
-from pydantic import BaseModel, UUID4, error_wrappers
-from github import Repository
+from pathlib import Path
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Optional
 
-from .repositories import Project, Repo, Branch
+from github import Repository
+from pydantic import UUID4
+from pydantic import BaseModel
+from pydantic import error_wrappers
+
+from .repositories import Branch
+from .repositories import Project
+from .repositories import Repo
 
 
 class Settings(BaseModel):
@@ -159,7 +166,7 @@ class SnykWatchList(BaseModel):
 
         needs_tags = list()
 
-        repo_branches = list()
+        repo_branches: List[Dict[Any, Any]] = list()
 
         for repo in has_tags:
             branches = repo.get_reimport(self.default_org, self.snyk_orgs)
@@ -173,7 +180,6 @@ class SnykWatchList(BaseModel):
         for repo in repo_branches:
 
             for branch in repo["branches"]:
-                branch: Branch
 
                 for project in branch.projects:
 
