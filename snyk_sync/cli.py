@@ -5,12 +5,12 @@ from datetime import datetime as dt
 from datetime import timedelta
 from os import environ
 from pathlib import Path
+from pprint import pprint
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
 from uuid import UUID
-from pprint import pprint
 
 import api
 import typer
@@ -291,11 +291,11 @@ def sync(
 
         with typer.progressbar(forks, label="Scanning: ") as forks_progress:
             for fork in forks_progress:
-                try:    
+                try:
                     f_owner = fork.source.owner
                     f_name = fork.source.name
                     f_repo = gh.get_repo(f"{f_owner}/{f_name}")
-                
+
                     f_yaml = f_repo.get_contents(".snyk.d/import.yaml")
                     yaml_repo = watchlist.get_repo(f_repo.id)
                     if yaml_repo:
