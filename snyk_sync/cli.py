@@ -43,6 +43,7 @@ watchlist = SnykWatchList()
 # DEBUG_LEVEL = environ["SNYK_SYNC_DEBUG_LEVEL"] or "INFO"
 
 logging.basicConfig(level="INFO")
+# logging.basicConfig(level="DEBUG")
 
 
 def settings_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
@@ -212,7 +213,7 @@ def sync(
 
     v3client = SnykClient(
         str(s.snyk_token),
-        version="2022-02-16~experimental",
+        version="2022-04-06~beta",
         url="https://api.snyk.io/rest",
         user_agent=f"pysnyk/snyk_services/sync/{__version__}",
         tries=2,
@@ -301,7 +302,7 @@ def sync(
                     if yaml_repo:
                         yaml_repo.parse_import(f_yaml, instance=s.instance)
                 except Exception as e:
-                    typer.echo(f" - error processing fork: {e!r}\n")
+                    typer.echo(f"\n\n - error processing fork: {e!r}\n")
                     typer.echo("dumping fork object:")
                     pprint(fork)
 
@@ -319,7 +320,14 @@ def sync(
                 import_repo = watchlist.get_repo(r_id)
 
                 if import_repo and str(import_repo.import_sha) != str(import_yaml.sha):
-                    import_repo.parse_import(import_yaml, instance=s.instance)
+                    try:
+                        import_repo.parse_import(import_yaml, instance=s.instance)
+                    except Exception as e:
+                        typer.echo(
+                            f"\n\n*** ERROR processing import.yaml file:"
+                            f"Please check that it is valid YAML\n {e}"
+                            f"\ndumping repo object: {import_repo}\n"
+                        )
 
     rate_limit.update(show_rate_limit)
 
