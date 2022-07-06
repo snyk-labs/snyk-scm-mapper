@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import datetime
 from logging import exception
 from os import environ
@@ -23,6 +24,9 @@ from typer import Context
 
 V3_VERS = "2021-08-20~beta"
 USER_AGENT = "pysnyk/snyk_services/snyk_sync"
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename="snyk_sync.log", filemode="w", encoding="utf-8")
 
 
 def jprint(something):
@@ -298,18 +302,26 @@ def ensure_dir(directory: Path) -> bool:
 
 def load_watchlist(cache_dir: Path) -> SnykWatchList:
     tmp_watchlist = SnykWatchList()
+    cache_data_errors = []
 
     if path.exists(f"{cache_dir}/data.json"):
         try:
             cache_data = jopen(f"{cache_dir}/data.json")
-            for r in cache_data:
+            for repo in cache_data:
                 try:
-                    tmp_watchlist.repos.append(Repo.parse_obj(r))
+                    tmp_watchlist.repos.append(Repo.parse_obj(repo))
                 except Exception as e:
-                    exception(f"Error {e} attempting to parse {r}")
+                    cache_data_error_string = f"Error {e} attempting to parse import.yaml in repo {repo['url']}"
+                    # print(f"{cache_data_error_string}")
+                    cache_data_errors.append(cache_data_error_string)
+
+            if cache_data_errors:
+                print(f"{len(cache_data_errors)} errors when loading cache, please see log for details")
+                for cache_data_error in cache_data_errors:
+                    logger.warning(f"{cache_data_error}")
 
         except KeyError as e:
-            print(e)
+            print(f"{e}")
 
     return tmp_watchlist
 

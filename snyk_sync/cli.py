@@ -40,11 +40,6 @@ s = Settings()
 
 watchlist = SnykWatchList()
 
-# DEBUG_LEVEL = environ["SNYK_SYNC_DEBUG_LEVEL"] or "INFO"
-
-logging.basicConfig(level="INFO")
-# logging.basicConfig(level="DEBUG")
-
 
 def settings_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
 
@@ -429,10 +424,10 @@ def targets(
         sync()
     else:
         load_conf()
+        tmp_watch: SnykWatchList = load_watchlist(s.cache_dir)
+        watchlist.repos = tmp_watch.repos
 
-    tmp_watch: SnykWatchList = load_watchlist(s.cache_dir)
-
-    watchlist.repos = tmp_watch.repos
+    # print(f"{watchlist=}")
 
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
 
