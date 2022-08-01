@@ -318,7 +318,7 @@ def load_watchlist(cache_dir: Path) -> SnykWatchList:
         try:
             tmp_watchlist.repos.append(Repo.parse_obj(repo))
         except Exception as e:
-            cache_data_error_string = f"Error {e} attempting to parse import.yaml in repo {repo['url']}"
+            cache_data_error_string = f"Error {repr(e)} attempting to parse import.yaml in repo {repo['url']}"
             # print(f"{cache_data_error_string}")
             cache_data_errors.append(cache_data_error_string)
 
