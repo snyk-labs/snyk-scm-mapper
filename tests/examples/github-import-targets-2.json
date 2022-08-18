@@ -1,32 +1,27 @@
 {
-    "targets": [
-        {
-            "target": {
-                "fork": false,
-                "name": "org-project-import",
-                "owner": "snyk-playground",
-                "branch": "main",
-                "exclusionGlobs": "fixtures, tests, __tests__, node_modules",
-                "files":[
-                    { "path": "path/to/file" },
-                    { "path": "path/to/file" }
-                ]
-            },
-            "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
-            "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6",
-            "tags": [
-                {"key": "testing", "value":"testing2"}
-            ]
-        },
-        {
-            "target": {
-                "fork": true,
-                "name": "goof",
-                "owner": "snyk-playground",
-                "branch": "master"
-            },
-            "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
-            "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6"
-        }
-    ]
+  "targets": [
+    {
+      "target": {
+        "fork": false,
+        "name": "org-project-import",
+        "owner": "snyk-playground",
+        "branch": "main",
+        "exclusionGlobs": "fixtures, tests, __tests__, node_modules",
+        "files": [{ "path": "path/to/file" }, { "path": "path/to/file" }]
+      },
+      "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
+      "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6",
+      "tags": [{ "key": "testing", "value": "testing2" }]
+    },
+    {
+      "target": {
+        "fork": true,
+        "name": "goof",
+        "owner": "snyk-playground",
+        "branch": "master"
+      },
+      "integrationId": "b87e1473-37ab-4f09-a4e3-a0139a50e81e",
+      "orgId": "39ddc762-b1b9-41ce-ab42-defbe4575bd6"
+    }
+  ]
 }

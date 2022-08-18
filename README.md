@@ -16,7 +16,7 @@ Assumptions:
 
 - A repository is considered monitored if it already has a single project (there are tools such as [scm-refresh](https://github.com/snyk-tech-services/snyk-scm-refresh) that will allow one to reprocess existing repositories and it is on the Snyk roadmap to reprocess them natively)
 - Tags are additive: Any tags specified in the `import.yaml` will be added to all projects from the same repository. If the tag already exists as an exact match, it will not be added, and existing tags not declared in `import.yaml` will not be removed. Snyk allows for duplicate Key names, so "application:database" and "application:frontend" are both valid K:V tags that could be on the same project. This is not a suggestion to do this, but pointing out it is possible.
-- Forks: Because of how GitHub's indexing works, it will not search forks. Snyk Sync uses GitHub's search functionality to detect `import.yaml` files (to keep API calls to a minimum). In order to add forks, use the `--forks` flag to have Snyk Sync search each fork individually for the `import.yaml` file. **CAUTION:** This will incur an API cost of atleast one request per fork and two if the fork contains an `import.yaml` - Snyk Sync does not have request throtlling at the moment
+- Forks: Because of how GitHub's indexing works, it will not search forks. Snyk Sync uses GitHub's search functionality to detect `import.yaml` files (to keep API calls to a minimum). In order to add forks, use the `--forks` flag to have Snyk Sync search each fork individually for the `import.yaml` file. **CAUTION:** This will incur an API cost of atleast one request per fork and two if the fork contains an `import.yaml` 
 
 ## Topics
 
@@ -165,38 +165,6 @@ docker pull ghcr.io/snyk-playground/snyk-sync:latest
 docker tag ghcr.io/snyk-playground/snyk-sync:latest snyk-sync:latest
 docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN -v "${PWD}":/runtime snyk-sync:latest --sync target
 ```
-
-### Testing Rate Limits
-
-In order to determine where a ratelimit is being reached with GitHub, we have the Github API calls extracted so they can be run and counted:
-
-```
-docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN \
--v "${PWD}":/runtime --entrypoint "/usr/local/bin/rate_limits.sh" \
-snyk-sync:latest --conf conf/snyk-sync.yaml --per-page 100
-
-Core Limit: 5000
-Search Limit: 30
-Results per page: 100
-These are API calls: all repos for each org in config
-        Getting GH Org for snyk-playground
-                Core Cost: 1    Search Cost: 0
-        Getting all repos for snyk-playground
-                Core Cost: 0    Search Cost: 0
-        Total repos for snyk-playground: 29
-                Core Cost: 1    Search Cost: 0
-
-API calls for searching for import.yaml
-        Performing import.yaml search across snyk-playground
-                Core Cost: 0    Search Cost: 0
-        Total repos for snyk-playground with a import.yaml hit: 6
-                Core Cost: 0    Search Cost: 1
-        Filtering the list of import.yaml matches for snyk-playground
-                Core Cost: 0    Search Cost: 1
-```
-
-docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN -v "${PWD}":/runtime \
-ghcr.io/snyk-playground/snyk-sync:latest --sync targets --save
 
 ### Using a custom CA Root Certificate / proxies
 

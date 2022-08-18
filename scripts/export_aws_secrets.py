@@ -1,6 +1,6 @@
 import json
-
 import subprocess
+
 
 get_aws_data = "aws secretsmanager get-secret-value --secret-id snyk_sync_secrets --query SecretString"
 

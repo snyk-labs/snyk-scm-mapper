@@ -2,10 +2,10 @@ default:
   integrationName: github-enterprise
   orgName: ie-playground
 github_orgs:
-- snyk-playground
+  - snyk-playground
 schema: 2
 snyk:
   groups:
-  - id: 36863d40-ba29-491f-af63-7a1a7d79e411
-    name: customer-success-engineering
-    token_env_name: SNYK_TOKEN
+    - id: 36863d40-ba29-491f-af63-7a1a7d79e411
+      name: customer-success-engineering
+      token_env_name: SNYK_TOKEN
