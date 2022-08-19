@@ -201,7 +201,7 @@ def sync(
 
     watchlist.repos = tmp_watch.repos
 
-    GH_PAGE_LIMIT = 1
+    GH_PAGE_LIMIT = 100
 
     gh = Github(s.github_token, per_page=GH_PAGE_LIMIT)
 
