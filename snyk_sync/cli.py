@@ -233,14 +233,11 @@ def sync(
             gh_org=gh_org, show_rate_limit=show_rate_limit, type="all", sort="updated", direction="desc"
         )
         gh_repos_count = gh_repos.totalCount
-        #print(f"gh_repos {gh_repos_count=}")
 
         pages = gh_repos_count // GH_PAGE_LIMIT
-        #print(f"gh_repos {pages=}")
 
         if (gh_repos_count % GH_PAGE_LIMIT) > 0:
             pages += 1
-            #print(f"gh_repos {pages=}")
 
         with typer.progressbar(
             length=pages, label=f"Processing {gh_repos_count} repos in {gh_org_name}: "
@@ -262,16 +259,10 @@ def sync(
 
         import_repos_count = import_repos.totalCount
 
-        #print(f"{import_repos_count=}")
-
         import_repos_pages = import_repos_count // GH_PAGE_LIMIT
-
-        #print(f"{import_repos_pages=}")
 
         if (import_repos_count % GH_PAGE_LIMIT) > 0:
             import_repos_pages += 1
-
-        #print(f"{import_repos_pages=}")
 
         filtered_repos = []
         for i in range(0, import_repos_pages):
