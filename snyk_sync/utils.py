@@ -12,9 +12,14 @@ from typing import Optional
 from typing import Union
 from typing import cast
 
+import backoff
 import requests
+import typer
 import yaml
 from github import Github
+from github.GithubException import RateLimitExceededException
+from github.Organization import Organization
+from github.PaginatedList import PaginatedList
 from models.sync import Repo
 from models.sync import Settings
 from models.sync import SnykWatchList
@@ -66,36 +71,6 @@ def newer(cached: str, remote: str) -> bool:
     # print(cache_ts, remote_ts)
 
     return bool(remote_ts < cache_ts)
-
-
-class RateLimit:
-    def __init__(self, gh: Github):
-        self.core_limit = gh.get_rate_limit().core.limit
-        self.search_limit = gh.get_rate_limit().search.limit
-        # we want to know how many calls had been made before we created this object
-        # calling this a tare
-        self.core_tare = gh.get_rate_limit().core.limit - gh.get_rate_limit().core.remaining
-        self.search_tare = gh.get_rate_limit().search.limit - gh.get_rate_limit().search.remaining
-        self.core_calls = [0]
-        self.search_calls = [0]
-        self.gh = gh
-
-    def update(self, display: bool = False):
-        core_call = self.core_limit - self.core_tare - self.gh.get_rate_limit().core.remaining
-        search_call = self.search_limit - self.search_tare - self.gh.get_rate_limit().search.remaining
-
-        self.core_calls.append(core_call)
-        self.search_calls.append(search_call)
-
-        if display is True:
-            core_diff = self.core_calls[-1] - self.core_calls[-2]
-            search_diff = self.search_calls[-1] - self.search_calls[-2]
-            print(f"GH RateLimit: Core Calls = {core_diff}")
-            print(f"GH RateLimit: Search Calls = {search_diff}")
-
-    def total(self):
-        print(f"GH RateLimit: Total Core Calls = {self.core_calls[-1]}")
-        print(f"GH RateLimit: Total Search Calls = {self.search_calls[-1]}")
 
 
 def make_v3_get(endpoint, token):
@@ -336,3 +311,39 @@ def update_client(old_client, token):
     old_client.api_post_headers = old_client.api_headers
 
     return old_client
+
+
+def filter_chunk(chunk, exclude_list):
+    return [y for y in chunk if y.repository.id not in exclude_list and y.name == "import.yaml"]
+
+
+# Function wrappers for GitHub API calls. Here we simply wrap the original call in a function which is decorated with
+# a "backoff". This will catch rate limit exceptions and automatically retry the function.
+@backoff.on_exception(backoff.expo, RateLimitExceededException)
+def get_page_wrapper(pg_list: PaginatedList, page_number: int, show_rate_limit: bool = False):
+    try:
+        return pg_list.get_page(page_number)
+    except RateLimitExceededException as e:
+        if not show_rate_limit:
+            typer.echo("GitHub rate limit was hit.. backing off...")
+        raise e
+
+
+@backoff.on_exception(backoff.expo, RateLimitExceededException)
+def get_organization_wrapper(gh: Github, gh_org_name: str, show_rate_limit: bool = False):
+    try:
+        return gh.get_organization(gh_org_name)
+    except RateLimitExceededException as e:
+        if not show_rate_limit:
+            typer.echo("GitHub rate limit was hit.. backing off...")
+        raise e
+
+
+@backoff.on_exception(backoff.expo, RateLimitExceededException)
+def get_repos_wrapper(gh_org: Organization, type: str, sort: str, direction: str, show_rate_limit: bool = False):
+    try:
+        return gh_org.get_repos(type=type, sort=sort, direction=direction)
+    except RateLimitExceededException as e:
+        if not show_rate_limit:
+            typer.echo("GitHub rate limit was hit.. backing off...")
+        raise e

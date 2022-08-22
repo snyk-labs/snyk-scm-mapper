@@ -12,63 +12,6 @@ from snyk import SnykClient  # type: ignore
 logger = logging.getLogger(__name__)
 
 
-class RateLimit:
-    def __init__(self, gh: Github, pages):
-        self.core_limit = gh.get_rate_limit().core.limit
-        self.search_limit = gh.get_rate_limit().search.limit
-        # we want to know how many calls had been made before we created this object
-        # calling this a tare
-        self.core_tare = gh.get_rate_limit().core.limit - gh.get_rate_limit().core.remaining
-        self.search_tare = gh.get_rate_limit().search.limit - gh.get_rate_limit().search.remaining
-        self.gh = gh
-        self.core_calls = [0]
-        self.search_calls = [0]
-        self.repo_count = 0
-        self.pages = pages
-
-    def update(self, display: bool = False):
-        core_call = self.core_limit - self.core_tare - self.gh.get_rate_limit().core.remaining
-        search_call = self.search_limit - self.search_tare - self.gh.get_rate_limit().search.remaining
-
-        self.core_calls.append(core_call)
-        self.search_calls.append(search_call)
-
-        if display is True:
-            core_diff = self.core_calls[-1] - self.core_calls[-2]
-            search_diff = self.search_calls[-1] - self.search_calls[-2]
-            print(f"GH RateLimit: Core Calls = {core_diff}")
-            print(f"GH RateLimit: Search Calls = {search_diff}")
-
-    def add_calls(self, repo_total: int):
-        self.repo_count = repo_total
-
-    def check(self, kind="core"):
-
-        if kind == "core":
-            rl = self.gh.get_rate_limit().core
-        elif kind == "search":
-            rl = self.gh.get_rate_limit().search
-
-        expiration = rl.reset
-
-        now = datetime.utcnow()
-
-        reset_countdown = expiration - now
-
-        remaining = rl.remaining
-
-        needed_requests = (self.repo_count // self.pages) + 1
-
-        if needed_requests > remaining:
-            print(f"\n{needed_requests} requests needed and {remaining} remaining")
-            print(f"Sleeping: {reset_countdown.seconds} seconds")
-            time.sleep(int(reset_countdown.seconds))
-
-    def total(self):
-        print(f"GH RateLimit: Total Core Calls = {self.core_calls[-1]}")
-        print(f"GH RateLimit: Total Search Calls = {self.search_calls[-1]}")
-
-
 class V3Projects(BaseModel):
     pass
 
