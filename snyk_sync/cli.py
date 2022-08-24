@@ -5,6 +5,7 @@ from datetime import datetime as dt
 from datetime import timedelta
 from os import environ
 from pathlib import Path
+from pprint import pformat
 from pprint import pprint
 from typing import Any
 from typing import Dict
@@ -33,6 +34,8 @@ from utils import get_repos_wrapper
 from utils import jopen
 from utils import jwrite
 from utils import load_watchlist
+from utils import logger
+from utils import set_log_level
 from utils import update_client
 from utils import yopen
 
@@ -162,11 +165,26 @@ def main(
         envvar="GITHUB_TOKEN",
         callback=settings_callback,
     ),
+    log_level: str = typer.Option(
+        default="ERROR",
+        help="The log level to set for the Snyk-Sync application.",
+        envvar="SNYK_SYNC_LOG_LEVEL",
+        callback=settings_callback,
+    ),
+    set_root_log_level: bool = typer.Option(
+        default=False,
+        help="Sets the log level defined in the `log-level` attribute across all modules / packages",
+        envvar="SNYK_SYNC_SET_ROOT_LOG_LEVEL",
+        callback=settings_callback,
+    ),
 ):
 
     # We keep this as the global settings hash
     global s
     global watchlist
+
+    # Before we do anything, let's set up the log levels
+    set_log_level(log_level, set_root_log_level)
 
     s = Settings.parse_obj(ctx.params)
 
@@ -191,6 +209,7 @@ def sync(
     global watchlist
 
     typer.echo("Sync starting", err=True)
+    logger.debug("starting sync")
 
     load_conf()
 
@@ -198,15 +217,12 @@ def sync(
     # or return an empty one if there is none
 
     tmp_watch: SnykWatchList = load_watchlist(s.cache_dir)
-
     watchlist.repos = tmp_watch.repos
+    logger.debug(f"loaded snyk watch list [{pformat(tmp_watch)}]")
 
     GH_PAGE_LIMIT = 100
-
     gh = Github(s.github_token, per_page=GH_PAGE_LIMIT)
-
     client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1)
-
     v3client = SnykClient(
         str(s.snyk_token),
         version="2022-04-06~beta",
@@ -218,8 +234,10 @@ def sync(
 
     if s.github_orgs is not None:
         gh_orgs = list(s.github_orgs)
+        logger.debug(f"github orgs loaded from settings [{pformat(gh_orgs)}]")
     else:
         gh_orgs = list()
+        logger.debug("github orgs not found in settings, currently empty...")
 
     exclude_list: list = []
 
@@ -228,32 +246,40 @@ def sync(
     repo_ids: list = []
 
     for gh_org_name in gh_orgs:
+        logger.debug(f"processing org {gh_org_name}")
         gh_org = get_organization_wrapper(gh, gh_org_name, show_rate_limit)
         gh_repos = get_repos_wrapper(
             gh_org=gh_org, show_rate_limit=show_rate_limit, type="all", sort="updated", direction="desc"
         )
         gh_repos_count = gh_repos.totalCount
-
         pages = gh_repos_count // GH_PAGE_LIMIT
+        logger.debug(f"loaded org=[{pformat(gh_org)}] repos=[{pformat({gh_repos})}]")
+        logger.debug(f"repos_count={gh_repos_count}, calculated pages={pages}")
 
         if (gh_repos_count % GH_PAGE_LIMIT) > 0:
             pages += 1
+
+        logger.debug(f"repos_count={gh_repos_count}, calculated pages={pages}")
 
         with typer.progressbar(
             length=pages, label=f"Processing {gh_repos_count} repos in {gh_org_name}: "
         ) as gh_progress:
 
             for r_int in range(0, pages):
+                logger.debug(f"processing repos page {r_int}")
                 for gh_repo in get_page_wrapper(gh_repos, r_int, show_rate_limit):
+                    logger.debug(f"processing repo {pformat(gh_repo)}")
                     watchlist.add_repo(gh_repo)
                     repo_ids.append(gh_repo.id)
 
                 gh_progress.update(1)
 
     watchlist.prune(repo_ids)
+    logger.debug(f"watchlist=[{pformat(watchlist)}]")
 
     import_yamls: list = []
     for gh_org in gh_orgs:
+        logger.debug(f"processing org {pformat(gh_org)}")
         search = f"org:{gh_org} path:.snyk.d filename:import language:yaml"
         import_repos: PaginatedList[ContentFile] = gh.search_code(query=search)
 
@@ -264,24 +290,31 @@ def sync(
         if (import_repos_count % GH_PAGE_LIMIT) > 0:
             import_repos_pages += 1
 
+        logger.debug(f"import_repos_count={import_repos_count}, import_repos_pages={import_repos_pages}")
+
         filtered_repos = []
         for i in range(0, import_repos_pages):
+            logger.debug(f"processing page of repos {i}")
             current_page = get_page_wrapper(import_repos, i, show_rate_limit)
             filtered_repos.extend(filter_chunk(current_page, exclude_list))
         import_yamls.extend(filtered_repos)
-
+    logger.debug(f"filtered_repos(len)={len(filtered_repos)} import_yamls(len)={len(import_yamls)}")
     # we will likely want to put a limit around this, as we need to walk forked repose and try to get import.yaml
     # since github won't index a fork if it has less stars than upstream
 
     forks = [f for f in watchlist.repos if f.fork]
     forks = [y for y in forks if y.id not in exclude_list]
 
+    logger.debug(f"forks(len):{len(forks)}")
+
     if s.forks is True and len(forks) > 0:
+        logger.debug(f"processing {len(forks)} forks")
         typer.echo(f"Scanning {len(forks)} forks for import.yaml", err=True)
 
         with typer.progressbar(forks, label="Scanning: ") as forks_progress:
             for fork in forks_progress:
                 try:
+                    logger.debug(f"processing fork [{pformat(fork)}]")
                     f_owner = fork.source.owner
                     f_name = fork.source.name
                     f_repo = gh.get_repo(f"{f_owner}/{f_name}")
@@ -294,15 +327,17 @@ def sync(
                     typer.echo(f"\n\n - error processing fork: {e!r}\n")
                     typer.echo("dumping fork object:")
                     pprint(fork)
+                    logger.error(f"error processing fork... message={str(e)}")
 
         typer.echo(f"Have {len(import_yamls)} Repos with an import.yaml", err=True)
 
     if len(import_yamls) > 0:
+        logger.debug(f"processing [{pformat(import_yamls)}] imports")
         typer.echo(f"Loading import.yaml for non fork-ed repos", err=True)
 
         with typer.progressbar(import_yamls, label="Scanning: ") as import_progress:
             for import_yaml in import_progress:
-
+                logger.debug(f"processing import [{pformat(import_yaml)}")
                 r_id = import_yaml.repository.id
 
                 import_repo = watchlist.get_repo(r_id)
@@ -316,22 +351,24 @@ def sync(
                             f"Please check that it is valid YAML\n {e}"
                             f"\ndumping repo object: {import_repo}\n"
                         )
+                        logger.error(f"error processing import... message={str(e)}")
 
     # this calls our new Orgs object which caches and populates Snyk data locally for us
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
-
     select_orgs = [str(o["orgId"]) for k, o in s.snyk_orgs.items()]
 
+    logger.error(f"all_orgs={pformat(all_orgs)} select_orgs={pformat(select_orgs)}")
     typer.echo(f"Updating cache of Snyk projects", err=True)
 
     all_orgs.refresh_orgs(client, v3client, origin="github-enterprise", selected_orgs=select_orgs)
-
     all_orgs.save()
 
     typer.echo("Scanning Snyk for projects originating from GitHub Enterprise Repos", err=True)
     for repo in watchlist.repos:
+        logger.debug(f"processing watchlist repo={pformat(repo)}")
         found_projects = all_orgs.find_projects_by_repo(repo.full_name, repo.id)
         for p in found_projects:
+            logger.debug(f"repo found and added")
             repo.add_project(p)
 
     watchlist.save(cachedir=str(s.cache_dir))
@@ -352,39 +389,46 @@ def status():
 
     if s.force_sync:
         typer.echo("Sync forced, ignoring cache status", err=True)
+        logger.debug("sync forced - returnung")
         return False
 
     typer.echo("Checking cache status", err=True)
 
     if os.path.exists(f"{s.cache_dir}/sync.json"):
         sync_data = jopen(f"{s.cache_dir}/sync.json")
+        logger.debug(f"path exists and contains {pformat(sync_data)}")
     else:
+        logger.debug(f"repo found and added")
         return False
 
     last_sync = dt.strptime(sync_data["last_sync"], "%Y-%m-%dT%H:%M:%S.%f")
-
+    logger.debug(f"last sync was performed at {pformat(last_sync)}")
     in_sync = True
 
     if s.cache_timeout is None:
         timeout = 0
     else:
         timeout = float(str(s.cache_timeout))
+    logger.debug(f"cache timeout set to {timeout}")
 
     if last_sync < dt.utcnow() - timedelta(minutes=timeout):
         typer.echo("Cache is out of date and needs to be updated", err=True)
+        logger.debug(f"cache out of date")
         in_sync = False
     else:
         typer.echo(f"Cache is less than {s.cache_timeout} minutes old", err=True)
+        logger.debug(f"cache is current")
 
     typer.echo("Attempting to load cache", err=True)
 
     watchlist = load_watchlist(s.cache_dir)
+    logger.debug(f"watchlist={pformat(watchlist)}")
 
     typer.echo("Cache loaded successfully", err=True)
 
     watchlist.default_org = s.default_org
     watchlist.snyk_orgs = s.snyk_orgs
-
+    logger.debug(f"watchlist.default_org={pformat(s.default_org)}, watchlist.snyk_orgs={pformat(s.snyk_orgs)}")
     return in_sync
 
 
@@ -409,17 +453,19 @@ def targets(
     global watchlist
 
     if status() == False:
+        logger.debug("cache not current, syncing...")
         sync()
     else:
         load_conf()
         tmp_watch: SnykWatchList = load_watchlist(s.cache_dir)
         watchlist.repos = tmp_watch.repos
+        logger.debug(f"loaded cache... tmp_watch={pformat(watchlist.repos)}")
 
     # print(f"{watchlist=}")
 
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
-
     all_orgs.load()
+    logger.debug(f"all_orgs={pformat(all_orgs)}")
 
     target_list = []
 
@@ -433,10 +479,14 @@ def targets(
     else:
         filtered_repos = filtered_repos
 
-    for r in filtered_repos:
+    logger.debug(f"filtered_repos={pformat(filtered_repos)}")
 
+    for r in filtered_repos:
+        logger.debug(f"processing repo={pformat(r)}")
         if r.needs_reimport(s.default_org, s.snyk_orgs) or force_refresh:
+            logger.debug(f"needs reimport")
             for branch in r.get_reimport(s.default_org, s.snyk_orgs):
+                logger.debug(f"processing branch={pformat(branch)}")
                 if branch.project_count() == 0 or force_refresh:
 
                     if force_default:
@@ -446,8 +496,9 @@ def targets(
                         org_id = branch.org_id
                         int_id = branch.integrations["github-enterprise"]
 
+                    logger.debug(f"org_id={org_id}, int_id={int_id}")
                     source = r.source.get_target()
-
+                    logger.debug(f"source={pformat(source)}")
                     source["branch"] = branch.name
 
                     target = {
@@ -458,11 +509,13 @@ def targets(
 
                     target_list.append(target)
 
-    final_targets = list()
+    final_targets: List = list()
+    logger.debug(f"final_targets={pformat(final_targets)}")
 
     for group in s.snyk_groups:
+        logger.debug(f"processing group={pformat(group)}")
         orgs = all_orgs.get_orgs_by_group(group)
-
+        logger.debug(f"orgs={pformat(orgs)}")
         o_ids = [str(o.id) for o in orgs]
 
         g_targets = {"name": group["name"], "targets": list()}
@@ -472,6 +525,7 @@ def targets(
         final_targets.append(g_targets)
 
     if save_targets is True:
+        logger.debug(f"saving targets")
         typer.echo(f"Writing targets to {s.targets_dir}", err=True)
         if os.path.isdir(f"{s.targets_dir}") is not True:
             typer.echo(f"Creating directory to {s.targets_dir}", err=True)
@@ -505,26 +559,28 @@ def tags(
     v1client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=1, delay=1)
 
     if status() == False:
+        logger.debug(f"cache not current, syncing")
         sync()
     else:
+        logger.debug(f"loading config")
         load_conf()
 
     tmp_watch = load_watchlist(s.cache_dir)
-
+    logger.debug(f"tmp_watch={pformat(tmp_watch)}")
     watchlist.repos = tmp_watch.repos
 
     all_orgs = Orgs(cache=str(s.cache_dir), groups=s.snyk_groups)
-
     all_orgs.load()
+    logger.debug(f"all_orgs={all_orgs}")
 
     needs_tags = list()
 
     for group in s.snyk_groups:
-
+        logger.debug(f"processing group={pformat(group)}")
         group_tags = {"name": group["name"], "tags": list()}
 
         orgs = all_orgs.get_orgs_by_group(group)
-
+        logger.debug(f"orgs={pformat(orgs)}")
         o_ids = [str(o.id) for o in orgs]
 
         group_tags["tags"] = watchlist.get_proj_tag_updates(o_ids)
@@ -534,6 +590,7 @@ def tags(
     # now we iterate over needs_tags by group and save out a per group tag file
 
     for g_tags in needs_tags:
+        logger.debug(f"processing tags={pformat(g_tags)}")
         if g_tags["tags"]:
             if update_tags is True:
                 typer.echo(f"Checking if {g_tags['name']} projects need tag updates", err=True)
@@ -558,6 +615,7 @@ def tags(
                         p_live = v1client.get(p_path).json()
                     except SnykHTTPError as e:
                         typer.echo(f"Error: retrieving project path: {p_path} error:\n{e}")
+                        logger.exception(f"issue getting project path error={str(e)}")
                         break
 
                     tags_to_post = [t for t in p["tags"] if t not in p_live["tags"]]
@@ -613,6 +671,7 @@ def autoconf(
     conf["default"] = dict()
     conf["default"]["orgName"] = snykorg
     conf["default"]["integrationName"] = "github-enterprise"
+    logger.debug(f"conf={pformat(conf)}")
 
     typer.echo(f"Generating configuration based on Snyk Org: {snykorg} and Github Org: {githuborg} ", err=True)
 
@@ -654,6 +713,8 @@ def autoconf(
 
     if s.snyk_orgs_file.write_text(yaml.safe_dump(snyk_orgs)):
         typer.echo(f"Wrote Snyk Orgs data for the Group: {my_group_slug} to: {s.snyk_orgs_file.as_posix()}", err=True)
+
+    logger.debug(f"snyk_orgs={pformat(snyk_orgs)}")
 
 
 def load_conf():

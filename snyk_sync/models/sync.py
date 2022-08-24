@@ -14,6 +14,7 @@ from pydantic import error_wrappers
 from .repositories import Branch
 from .repositories import Project
 from .repositories import Repo
+from .repositories import Source
 
 
 class Settings(BaseModel):
@@ -93,7 +94,14 @@ class SnykWatchList(BaseModel):
             "url": repo.html_url,
             "project_base": repo.full_name,
         }
-
+        tmp_source = Source(
+            fork=repo.fork,
+            name=repo.name,
+            owner=repo.owner.login,
+            branch=repo.default_branch,
+            url=repo.html_url,
+            project_base=repo.full_name,
+        )
         branches = list()
 
         branches.append(repo.default_branch)
@@ -117,7 +125,7 @@ class SnykWatchList(BaseModel):
 
             if existing_repo.is_older(repo.updated_at):
 
-                existing_repo.source = tmp_repo
+                existing_repo.source = tmp_source
 
                 existing_repo.url = repo.html_url
 
@@ -139,7 +147,7 @@ class SnykWatchList(BaseModel):
         else:
             try:
                 tmp_target = Repo(
-                    source=tmp_repo,
+                    source=tmp_source,
                     url=repo.html_url,
                     fork=repo.fork,
                     topics=topics,
