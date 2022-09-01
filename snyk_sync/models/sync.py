@@ -11,9 +11,10 @@ from pydantic import UUID4
 from pydantic import BaseModel
 from pydantic import error_wrappers
 
-from .repositories import Branch, Source
+from .repositories import Branch
 from .repositories import Project
 from .repositories import Repo
+from .repositories import Source
 
 
 class Settings(BaseModel):
