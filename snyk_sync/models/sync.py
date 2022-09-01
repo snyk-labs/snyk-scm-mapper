@@ -91,7 +91,7 @@ class SnykWatchList(BaseModel):
             owner=repo.owner.login,
             branch=repo.default_branch,
             url=repo.html_url,
-            project_base=repo.full_name
+            project_base=repo.full_name,
         )
 
         branches = list()
