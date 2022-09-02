@@ -102,6 +102,7 @@ class SnykWatchList(BaseModel):
             url=repo.html_url,
             project_base=repo.full_name,
         )
+
         branches = list()
 
         branches.append(repo.default_branch)
