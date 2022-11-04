@@ -42,7 +42,7 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk monitor
-        run: snyk monitor --org=ie-playground --file=poetry.lock --package-manager=poetry --project-lifecycle=development --tags=app=snyk-sync
+        run: snyk monitor --org=ie-playground --file=poetry.lock --package-manager=poetry --project-lifecycle=development --tags=app=snyk-scm-mapper
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
   docker_build:

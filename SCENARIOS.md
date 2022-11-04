@@ -96,9 +96,9 @@ branches:
 
 ## Scenario: Multiple teams running Snyk Sync, with repositories in overlapping github organizations
 
-This is the most complicated scenario as it involves multiple configuration files / repositories. If none of the above scenarios fit the need of a single snyk sync handling all repos in this fashion, than this is the next step. This is not required if different instances of snyk-sync are being running across different corressponding github orgs. This is specifically for the scenario of multiple snyk-syncs looking at the same import.yaml file.
+This is the most complicated scenario as it involves multiple configuration files / repositories. If none of the above scenarios fit the need of a single snyk sync handling all repos in this fashion, than this is the next step. This is not required if different instances of snyk-scm-mapper are being running across different corressponding github orgs. This is specifically for the scenario of multiple snyk-scm-mapper's looking at the same import.yaml file.
 
-This feature is activated by using an additional key in the import.yaml: `instance` and by running a corresponding snyk-sync instance with a matching value.
+This feature is activated by using an additional key in the import.yaml: `instance` and by running a corresponding snyk-scm-mapper instance with a matching value.
 
 With the following example, there are two instances of Snyk Sync evaluating the same import.yaml file:
 
@@ -125,4 +125,4 @@ instance:
 
 The first instance, or default instance, is run by the security team. It is configured and run by the security team. Since the security doesn't use `--instance` the top level values are what are used, so all projects from the `release` branch will get the tag `team: cse` and be imported into an org named `security-cse`.
 
-The CSE Team is also running their own instance of snyk-sync and they are running it with the `--instance cse-ownership` flag. That means the values under `instance -> cse-ownership` will override any top level values. So the `development` and `main` branches get imported into the default org for the instance (since no orgName is specified and security-cse is not an instance that they have access to so it isn't in their snyk-orgs.yaml file). The branch override is also evaluated, so additionally the release branch will be imported into the `cse-release-watch` org with a tag of `status: latest`.
+The CSE Team is also running their own instance of snyk-scm-mapper and they are running it with the `--instance cse-ownership` flag. That means the values under `instance -> cse-ownership` will override any top level values. So the `development` and `main` branches get imported into the default org for the instance (since no orgName is specified and security-cse is not an instance that they have access to so it isn't in their snyk-orgs.yaml file). The branch override is also evaluated, so additionally the release branch will be imported into the `cse-release-watch` org with a tag of `status: latest`.

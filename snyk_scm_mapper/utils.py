@@ -28,10 +28,10 @@ from typer import Context
 
 
 V3_VERS = "2021-08-20~beta"
-USER_AGENT = "pysnyk/snyk_services/snyk_sync"
+USER_AGENT = "pysnyk/snyk_services/snyk_scm_mapper"
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename="snyk_sync.log", filemode="w", encoding="utf-8")
+logging.basicConfig(filename="snyk_scm_mapper.log", filemode="w", encoding="utf-8")
 
 
 def jprint(something):

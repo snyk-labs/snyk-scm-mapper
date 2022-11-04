@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "snyk-sync"
+name = "snyk-scm-mapper"
 version = "0.3.0"
 description = "A tool to sync Snyk projects with GitHub repos"
 authors = ["Chris Barker <chris.barker@snyk.io>", "Scott Esbrandt <scott.esbrandt@snyk.io>"]
@@ -57,7 +57,7 @@ minversion = "6.0"
 addopts = "--black --mypy --isort --verbose --ignore examples --cov-report term-missing"
 testpaths = [
     "tests", 
-    "snyk_sync"
+    "snyk_scm_mapper"
 ]
 
 [build-system]

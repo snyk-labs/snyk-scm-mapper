@@ -33,7 +33,7 @@ COPY --from=requirements /usr/local/bin/snyk /usr/local/bin/snyk
 COPY --from=requirements /usr/local/bin/snyk-api-import /usr/local/bin/snyk-api-import
 
 # copy stuff from this repo into the /app directory of the container
-COPY snyk_sync /app/snyk_sync
+COPY snyk_scm_mapper /app/snyk_scm_mapper
 
 # now we use multistage containers to then copy the requirements from the other container
 COPY --from=requirements /src/requirements.txt .
