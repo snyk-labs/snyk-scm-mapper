@@ -4,19 +4,19 @@
 # aws instance with sync installed in a python venv
 
 declare -x HOMEDIR="/home/ec2-user/"
-declare -x BASE_PATH="${HOMEDIR}snyk-sync/"
+declare -x BASE_PATH="${HOMEDIR}snyk-scm-mapper/"
 declare -x PYTHON="${BASE_PATH}.venv/bin/python"
-declare -x SNYK_SYNC="${BASE_PATH}snyk_sync/cli.py"
+declare -x SNYK_MAPPER="${BASE_PATH}snyk-scm-mapper/cli.py"
 
-declare -x SYNC_WORKING_DIR="${HOMEDIR}config/"
+declare -x MAPPER_WORKING_DIR="${HOMEDIR}config/"
 
 eval "$($PYTHON ${BASE_PATH}scripts/export_aws_secrets.py)"
 
-if ! [[ -d $SYNC_WORKING_DIR ]]; then
-    git clone --depth 1 "${SYNC_CONFIG_REPO}" $SYNC_WORKING_DIR
-    cd $SYNC_WORKING_DIR || exit
+if ! [[ -d $MAPPER_WORKING_DIR ]]; then
+    git clone --depth 1 "${SYNC_CONFIG_REPO}" $MAPPER_WORKING_DIR
+    cd $MAPPER_WORKING_DIR || exit
 else
-    cd $SYNC_WORKING_DIR || exit
+    cd $MAPPER_WORKING_DIR || exit
     git fetch --depth 1 origin
 fi
 
@@ -28,9 +28,9 @@ function setup_crontab(){
     
     crontab -l > temp_cron
 
-    if ! grep -e "#snyk-sync-cron" temp_cron; then
-        echo "#snyk-sync-cron" >> temp_cron
-        cat "${SYNC_WORKING_DIR}crontab-entry" >> temp_cron
+    if ! grep -e "#snyk-scm-mapper-cron" temp_cron; then
+        echo "#snyk-scm-mapper-cron" >> temp_cron
+        cat "${MAPPER_WORKING_DIR}crontab-entry" >> temp_cron
         crontab temp_cron
     fi
 
@@ -41,23 +41,23 @@ function setup_crontab(){
 }
 
 function perform_sync(){
-    cd "${SYNC_WORKING_DIR}" || exit
-    "${PYTHON}" "${SNYK_SYNC}" sync
+    cd "${MAPPER_WORKING_DIR}" || exit
+    "${PYTHON}" "${SNYK_MAPPER}" sync
 }
 
 function generate_targets(){
-    cd "${SYNC_WORKING_DIR}" || exit
-    "${PYTHON}" "${SNYK_SYNC}" targets --save 
+    cd "${MAPPER_WORKING_DIR}" || exit
+    "${PYTHON}" "${SNYK_MAPPER}" targets --save 
 }
 
 function update_tags(){
-    cd "${SYNC_WORKING_DIR}" || exit
-    "${PYTHON}" "${SNYK_SYNC}" tags --update
+    cd "${MAPPER_WORKING_DIR}" || exit
+    "${PYTHON}" "${SNYK_MAPPER}" tags --update
 }
 
 function perform_import(){
 
-    readarray -t import_scripts < <(ls ${SYNC_WORKING_DIR}scripts/imports/*.sh)
+    readarray -t import_scripts < <(ls ${MAPPER_WORKING_DIR}scripts/imports/*.sh)
 
     for import_script in "${import_scripts[@]}"; do
         /bin/bash "${import_script}"
@@ -66,11 +66,11 @@ function perform_import(){
 }
 
 
-if [[ -f "${SYNC_WORKING_DIR}cron.sh" ]]; then
-    /bin/bash "${SYNC_WORKING_DIR}cron.sh"
+if [[ -f "${MAPPER_WORKING_DIR}cron.sh" ]]; then
+    /bin/bash "${MAPPER_WORKING_DIR}cron.sh"
 else
 
-    cd ${SYNC_WORKING_DIR} || exit
+    cd ${MAPPER_WORKING_DIR} || exit
 
     setup_crontab
 

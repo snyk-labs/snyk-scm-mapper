@@ -156,7 +156,7 @@ def default_settings(
     name: Optional[str], value: str, default: Union[Any, Callable[[], Any], None], context: Context
 ) -> Settings:
     """
-    We want a self / auto configuring experience for Snyk Sync, but also allow for options to be passed from ENV, CLI, OR a config file.
+    We want a self / auto configuring experience for Snyk Scm Mapper, but also allow for options to be passed from ENV, CLI, OR a config file.
     CLI overrides ENV, and typer handles that for us. But we want CLI and ENV to override the config file, so we need to load that value
     Also we have a lot of relativistic values, ie the tags directory is in the root of the folder containing the config file
     So if tag_dir isn't set by CLI or ENV, it ends up here. Then if it's not set in the conf file, we want to return the directory of the

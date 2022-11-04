@@ -66,7 +66,7 @@ def main(
         writable=False,
         readable=True,
         resolve_path=True,
-        envvar="SNYK_SYNC_CONFIG",
+        envvar="SNYK_MAPPER_CONFIG",
     ),
     cache_dir: Optional[Path] = typer.Option(
         default=None,
@@ -77,19 +77,19 @@ def main(
         readable=True,
         resolve_path=True,
         help="Cache location",
-        envvar="SNYK_SYNC_CACHE_DIR",
+        envvar="SNYK_MAPPER_CACHE_DIR",
         callback=settings_callback,
     ),
     cache_timeout: int = typer.Option(
         default=60,
         help="Maximum cache age, in minutes",
-        envvar="SNYK_SYNC_CACHE_TIMEOUT",
+        envvar="SNYK_MAPPER_CACHE_TIMEOUT",
         callback=settings_callback,
     ),
     forks: bool = typer.Option(
         default=False,
         help="Check forks for import.yaml files",
-        envvar="SNYK_SYNC_FORKS",
+        envvar="SNYK_MAPPER_FORKS",
         callback=settings_callback,
     ),
     targets_dir: Optional[Path] = typer.Option(
@@ -100,7 +100,7 @@ def main(
         writable=True,
         readable=True,
         resolve_path=True,
-        envvar="SNYK_SYNC_TARGETS_DIR",
+        envvar="SNYK_MAPPER_TARGETS_DIR",
         callback=settings_callback,
     ),
     tags_dir: Optional[Path] = typer.Option(
@@ -111,7 +111,7 @@ def main(
         writable=True,
         readable=True,
         resolve_path=True,
-        envvar="SNYK_SYNC_TAGS_DIR",
+        envvar="SNYK_MAPPER_TAGS_DIR",
         callback=settings_callback,
     ),
     snyk_orgs_file: Optional[Path] = typer.Option(
@@ -123,25 +123,25 @@ def main(
         readable=True,
         resolve_path=True,
         help="Snyk orgs to watch",
-        envvar="SNYK_SYNC_ORGS",
+        envvar="SNYK_MAPPER_ORGS",
         callback=settings_callback,
     ),
     default_org: str = typer.Option(
         default=None,
         help="Default Snyk Org to use from Orgs file.",
-        envvar="SNYK_SYNC_DEFAULT_ORG",
+        envvar="SNYK_MAPPER_DEFAULT_ORG",
         callback=settings_callback,
     ),
     default_int: str = typer.Option(
         default=None,
         help="Default Snyk Integration to use with Default Org.",
-        envvar="SNYK_SYNC_DEFAULT_INT",
+        envvar="SNYK_MAPPER_DEFAULT_INT",
         callback=settings_callback,
     ),
     instance: str = typer.Option(
         default=None,
         help="Default Snyk Integration to use with Default Org.",
-        envvar="SNYK_SYNC_INSTANCE",
+        envvar="SNYK_MAPPER_INSTANCE",
         callback=settings_callback,
     ),
     snyk_token: UUID = typer.Option(
@@ -171,7 +171,7 @@ def main(
     s = Settings.parse_obj(ctx.params)
 
     if ctx.invoked_subcommand is None:
-        typer.echo("Snyk Sync invoked with no subcommand, executing all", err=True)
+        typer.echo("Snyk Scm Mapper invoked with no subcommand, executing all", err=True)
         if status() is False:
             sync()
 
@@ -190,7 +190,7 @@ def sync(
 
     global watchlist
 
-    typer.echo("Sync starting", err=True)
+    typer.echo("Mapper starting", err=True)
 
     load_conf()
 
@@ -205,13 +205,13 @@ def sync(
 
     gh = Github(s.github_token, per_page=GH_PAGE_LIMIT)
 
-    client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=2, delay=1)
+    client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/mapper/{__version__}", tries=2, delay=1)
 
     v3client = SnykClient(
         str(s.snyk_token),
         version="2022-04-06~beta",
         url="https://api.snyk.io/rest",
-        user_agent=f"pysnyk/snyk_services/sync/{__version__}",
+        user_agent=f"pysnyk/snyk_services/mapper/{__version__}",
         tries=2,
         delay=3,
     )
@@ -502,7 +502,7 @@ def tags(
     global s
     global watchlist
 
-    v1client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}", tries=1, delay=1)
+    v1client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/mapper/{__version__}", tries=1, delay=1)
 
     if status() == False:
         sync()
@@ -603,7 +603,7 @@ def autoconf(
     """
     global s
 
-    client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/sync/{__version__}")
+    client = SnykClient(str(s.snyk_token), user_agent=f"pysnyk/snyk_services/mapper/{__version__}")
 
     conf: Dict[Any, Any] = dict()
     conf["schema"] = 2
