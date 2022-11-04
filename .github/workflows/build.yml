@@ -73,14 +73,14 @@ jobs:
           context: .
           push: true
           tags: |
-            nathanroys1/snyk-scm-mapper:latest
-            nathanroys1/snyk-scm-mapper:${{ github.sha }}
+            snyklabs/snyk-sync:latest
+            snyklabs/snyk-sync:${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
       - name: Snyk Container Test
-        run: snyk container test nathanroys1/snyk-scm-mapper:${{ github.sha }} --platform=${{matrix.platform}} --exclude-base-image-vulns --file=Dockerfile --org=ie-playground --severity-threshold=critical --project-lifecycle=development
+        run: snyk container test snyklabs/snyk-sync:${{ github.sha }} --platform=${{matrix.platform}} --exclude-base-image-vulns --file=Dockerfile --org=ie-playground --severity-threshold=critical --project-lifecycle=development
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk Container Monitor
-        run: snyk container monitor nathanroys1/snyk-scm-mapper:${{ github.sha }} --platform=${{matrix.platform}} --file=Dockerfile --org=ie-playground --project-lifecycle=development --tags=gitsha=$GITHUB_SHA,app=snyk-sync
+        run: snyk container monitor snyklabs/snyk-sync:${{ github.sha }} --platform=${{matrix.platform}} --file=Dockerfile --org=ie-playground --project-lifecycle=development --tags=gitsha=$GITHUB_SHA,app=snyk-sync
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
