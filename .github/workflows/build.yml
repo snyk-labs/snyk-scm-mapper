@@ -77,7 +77,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.sha }}
           labels: ${{ steps.meta.outputs.labels }}
       # - name: Snyk Container Test
       #   run: snyk container test ghcr.io/snyk-playground/snyk-sync:${{ github.sha }} --platform=${{matrix.platform}} --exclude-base-image-vulns --file=Dockerfile --org=ie-playground --severity-threshold=critical --project-lifecycle=development
