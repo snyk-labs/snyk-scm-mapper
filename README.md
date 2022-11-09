@@ -153,17 +153,17 @@ Options:
 This pushes to GitHub's [container registry](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry).
 
 ```
-docker build --force-rm -f Dockerfile -t snyk-sync:latest .
-docker tag snyk-sync:latest ghcr.io/snyk-playground/snyk-sync:latest
-docker push ghcr.io/snyk-playground/snyk-sync:latest
+docker build --force-rm -f Dockerfile -t snyk-scm-mapper:latest .
+docker tag snyk-scm-mapper:latest snyklabs/snyk-scm-mapper:latest
+docker push snyklabs/snyk-scm-mapper:latest
 ```
 
 ### Container Run Steps
 
 ```
-docker pull ghcr.io/snyk-playground/snyk-sync:latest
-docker tag ghcr.io/snyk-playground/snyk-sync:latest snyk-sync:latest
-docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN -v "${PWD}":/runtime snyk-sync:latest --sync target
+docker pull snyklabs/snyk-scm-mapper:latest
+docker tag snyklabs/snyk-scm-mapper:latest snyk-scm-mapper:latest
+docker run --rm -it -e GITHUB_TOKEN -e SNYK_TOKEN -v "${PWD}":/runtime snyk-scm-mapper:latest --sync target
 ```
 
 ### Using a custom CA Root Certificate / proxies
