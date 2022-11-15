@@ -86,14 +86,6 @@ class SnykWatchList(BaseModel):
             json.dump(state, the_file, indent=4)
 
     def add_repo(self, repo: Repository.Repository):
-        tmp_repo = {
-            "fork": repo.fork,
-            "name": repo.name,
-            "owner": repo.owner.login,
-            "branch": repo.default_branch,
-            "url": repo.html_url,
-            "project_base": repo.full_name,
-        }
         tmp_source = Source(
             fork=repo.fork,
             name=repo.name,
