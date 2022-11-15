@@ -115,6 +115,11 @@ Options:
   --sync                   Forces a sync regardless of cache status
   --github-token TEXT      GitHub access token  [env var: GITHUB_TOKEN;
                            required]
+  --log-level TEXT         The log-level which Scm Mapper will use (defaults)
+                           to ERROR. Log levels corrospond to Python log levels,
+                           see here: https://sematext.com/blog/logging-levels/
+  --set-root-log-level     Sets the log level for all modules, not just Scm Mapper
+                                              
   --help                   Show this message and exit.
 
 Commands:
