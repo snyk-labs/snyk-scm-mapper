@@ -9,4 +9,4 @@ if [[ -f "${PWD}/custom-ca.crt" ]]; then
     export NODE_EXTRA_CA_CERTS="${PWD}/custom-ca.crt"
 fi
 
-/usr/local/bin/python /app/snyk_sync/cli.py "${args[@]}"
+/usr/local/bin/python /app/snyk_scm_mapper/cli.py "${args[@]}"

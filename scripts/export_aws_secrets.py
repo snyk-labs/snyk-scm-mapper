@@ -2,7 +2,7 @@ import json
 import subprocess
 
 
-get_aws_data = "aws secretsmanager get-secret-value --secret-id snyk_sync_secrets --query SecretString"
+get_aws_data = "aws secretsmanager get-secret-value --secret-id snyk_scm_mapper_secrets --query SecretString"
 
 
 def run_process(cmd):

@@ -30,11 +30,11 @@ from typer import Context
 
 
 V3_VERS = "2021-08-20~beta"
-USER_AGENT = "pysnyk/snyk_services/snyk_sync"
+USER_AGENT = "pysnyk/snyk_services/snyk_scm_mapper"
 
 logger = logging.getLogger(__name__)
-FORMAT = "[%(filename)s:%(lineno)4s - %(funcName)s ] %(message)s"
 logging.basicConfig(filename="snyk_sync.log", filemode="w", format=FORMAT, encoding="utf-8")
+logging.basicConfig(filename="snyk_scm_mapper.log", filemode="w", encoding="utf-8")
 
 
 def set_log_level(log_level: str, set_root: bool = False):
@@ -197,7 +197,7 @@ def default_settings(
     name: Optional[str], value: str, default: Union[Any, Callable[[], Any], None], context: Context
 ) -> Settings:
     """
-    We want a self / auto configuring experience for Snyk Sync, but also allow for options to be passed from ENV, CLI, OR a config file.
+    We want a self / auto configuring experience for Snyk Scm Mapper, but also allow for options to be passed from ENV, CLI, OR a config file.
     CLI overrides ENV, and typer handles that for us. But we want CLI and ENV to override the config file, so we need to load that value
     Also we have a lot of relativistic values, ie the tags directory is in the root of the folder containing the config file
     So if tag_dir isn't set by CLI or ENV, it ends up here. Then if it's not set in the conf file, we want to return the directory of the
