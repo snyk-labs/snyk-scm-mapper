@@ -33,8 +33,8 @@ V3_VERS = "2021-08-20~beta"
 USER_AGENT = "pysnyk/snyk_services/snyk_scm_mapper"
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename="snyk_sync.log", filemode="w", format=FORMAT, encoding="utf-8")
-logging.basicConfig(filename="snyk_scm_mapper.log", filemode="w", encoding="utf-8")
+FORMAT = "[%(filename)s:%(lineno)4s - %(funcName)s ] %(message)s"
+logging.basicConfig(filename="snyk_scm_mapper.log", filemode="w", format=FORMAT, encoding="utf-8")
 
 
 def set_log_level(log_level: str, set_root: bool = False):
