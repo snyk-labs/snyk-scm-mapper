@@ -1,6 +1,8 @@
+import functools
 import json
 import logging
 from datetime import datetime
+from enum import Enum
 from logging import exception
 from os import environ
 from os import path
@@ -31,19 +33,49 @@ V3_VERS = "2021-08-20~beta"
 USER_AGENT = "pysnyk/snyk_services/snyk_scm_mapper"
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename="snyk_scm_mapper.log", filemode="w", encoding="utf-8")
+FORMAT = "[%(filename)s:%(lineno)4s - %(funcName)s ] %(message)s"
+logging.basicConfig(filename="snyk_scm_mapper.log", filemode="w", format=FORMAT, encoding="utf-8")
 
 
+def set_log_level(log_level: str, set_root: bool = False):
+    logger.setLevel(logging.getLevelName(log_level))
+    if set_root:
+        logging.root.setLevel(logging.getLevelName(log_level))
+
+
+def log(func):
+    if logger.level <= logging.DEBUG:
+
+        @functools.wraps(func)
+        def log_wrapper(*args, **kwargs):
+            args_repr = [repr(a) for a in args]
+            kwargs_repr = [f"{k}={v!r}" for k, v in kwargs.items()]
+            signature = ", ".join(args_repr + kwargs_repr)
+            logger.debug(f"function {func.__name__} called with args {signature}")
+            try:
+                result = func(*args, **kwargs)
+                return result
+            except Exception as e:
+                logger.exception(f"Exception raised in {func.__name__}. exception: {str(e)}")
+                raise e
+
+        return log_wrapper
+    return func
+
+
+@log
 def jprint(something):
     print(json.dumps(something, indent=2))
 
 
+@log
 def jopen(filename):
     with open(filename, "r") as the_file:
         data = the_file.read()
     return json.loads(data)
 
 
+@log
 def jwrite(data, filename, minimize: bool = False):
     try:
         with open(filename, "w") as the_file:
@@ -56,12 +88,14 @@ def jwrite(data, filename, minimize: bool = False):
         return False
 
 
+@log
 def yopen(filename):
     with open(filename, "r") as the_file:
         data = the_file.read()
     return yaml.safe_load(data)
 
 
+@log
 def newer(cached: str, remote: str) -> bool:
     # 2021-08-25T13:37:43Z
 
@@ -73,6 +107,7 @@ def newer(cached: str, remote: str) -> bool:
     return bool(remote_ts < cache_ts)
 
 
+@log
 def make_v3_get(endpoint, token):
     V3_API = "https://api.snyk.io/v3"
     USER_AGENT = "pysnyk/snyk_services/target_sync"
@@ -85,11 +120,13 @@ def make_v3_get(endpoint, token):
     return client.get(url)
 
 
+@log
 def v3_get(endpoint, token, delay=1):
     result = retry_call(make_v3_get, fkwargs={"endpoint": endpoint, "token": token}, tries=3, delay=delay)
     return result
 
 
+@log
 def get_org_targets(org: dict, token: str) -> list:
 
     print(f"getting {org['id']} / {org['slug']} targets")
@@ -102,6 +139,7 @@ def get_org_targets(org: dict, token: str) -> list:
     return targets
 
 
+@log
 def get_org_projects(org: dict, token: str) -> dict:
 
     print(f"getting {org['id']} / {org['slug']} projects")
@@ -132,6 +170,7 @@ def get_org_projects(org: dict, token: str) -> dict:
     return orgs_resp
 
 
+@log
 def search_projects(base_name, origin, client, snyk_token, org_in: dict):
 
     org: Dict = dict()
@@ -145,6 +184,7 @@ def search_projects(base_name, origin, client, snyk_token, org_in: dict):
     return json.loads(client.post(path, query).text)
 
 
+@log
 def to_camel_case(snake_str):
     components = snake_str.split("_")
     # We capitalize the first letter of each component except the first one
@@ -152,6 +192,7 @@ def to_camel_case(snake_str):
     return components[0] + "".join(x.title() for x in components[1:])
 
 
+@log
 def default_settings(
     name: Optional[str], value: str, default: Union[Any, Callable[[], Any], None], context: Context
 ) -> Settings:
@@ -255,12 +296,14 @@ def default_settings(
     return default
 
 
+@log
 def gen_path(parent_file: Path, child: str):
     the_path_string = f"{parent_file.parent}/{child}"
 
     return Path(the_path_string)
 
 
+@log
 def ensure_dir(directory: Path) -> bool:
     if not directory.exists():
         try:
@@ -275,6 +318,7 @@ def ensure_dir(directory: Path) -> bool:
         return True
 
 
+@log
 def load_watchlist(cache_dir: Path) -> SnykWatchList:
     tmp_watchlist = SnykWatchList()
     cache_data_errors = []
@@ -293,7 +337,10 @@ def load_watchlist(cache_dir: Path) -> SnykWatchList:
         try:
             tmp_watchlist.repos.append(Repo.parse_obj(repo))
         except Exception as e:
+            logger.exception(f"error loading watchlist, error={str(e)}")
+            logger.exception(f"Error {repr(e)} attempting to parse import.yaml in repo {repo['url']}")
             cache_data_error_string = f"Error {repr(e)} attempting to parse import.yaml in repo {repo['url']}"
+
             # print(f"{cache_data_error_string}")
             cache_data_errors.append(cache_data_error_string)
 
@@ -305,6 +352,7 @@ def load_watchlist(cache_dir: Path) -> SnykWatchList:
     return tmp_watchlist
 
 
+@log
 def update_client(old_client, token):
     old_client.api_token = token
     old_client.api_headers["Authorization"] = f"token {old_client.api_token}"
@@ -313,12 +361,14 @@ def update_client(old_client, token):
     return old_client
 
 
+@log
 def filter_chunk(chunk, exclude_list):
     return [y for y in chunk if y.repository.id not in exclude_list and y.name == "import.yaml"]
 
 
 # Function wrappers for GitHub API calls. Here we simply wrap the original call in a function which is decorated with
 # a "backoff". This will catch rate limit exceptions and automatically retry the function.
+@log
 @backoff.on_exception(backoff.expo, RateLimitExceededException)
 def get_page_wrapper(pg_list: PaginatedList, page_number: int, show_rate_limit: bool = False):
     try:
@@ -329,6 +379,7 @@ def get_page_wrapper(pg_list: PaginatedList, page_number: int, show_rate_limit: 
         raise e
 
 
+@log
 @backoff.on_exception(backoff.expo, RateLimitExceededException)
 def get_organization_wrapper(gh: Github, gh_org_name: str, show_rate_limit: bool = False):
     try:
@@ -339,6 +390,7 @@ def get_organization_wrapper(gh: Github, gh_org_name: str, show_rate_limit: bool
         raise e
 
 
+@log
 @backoff.on_exception(backoff.expo, RateLimitExceededException)
 def get_repos_wrapper(gh_org: Organization, type: str, sort: str, direction: str, show_rate_limit: bool = False):
     try:
