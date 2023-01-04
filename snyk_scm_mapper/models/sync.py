@@ -116,7 +116,7 @@ class SnykWatchList(BaseModel):
 
             existing_repo = self.get_repo(repo.id)
 
-            if existing_repo.is_older(repo.updated_at):
+            if existing_repo.is_older(repo.updated_at) or existing_repo.org != org_name:
 
                 existing_repo.source = tmp_source
 
@@ -130,8 +130,7 @@ class SnykWatchList(BaseModel):
 
                 existing_repo.archived = archived
 
-                if org_name != "default":
-                    existing_repo.org = org_name
+                existing_repo.org = org_name
 
                 existing_repo.branches = branches
 
