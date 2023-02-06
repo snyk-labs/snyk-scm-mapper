@@ -1,3 +1,7 @@
+![Snyk logo](https://snyk.io/style/asset/logo/snyk-print.svg)
+
+![snyk-oss-category](https://github.com/snyk-labs/oss-images/blob/main/oss-community.jpg)
+
 # Snyk Scm Mapper
 
 A way to ensure your GitHub Repos containing projects that can be monitored by Snyk are infact monitored by Snyk.
