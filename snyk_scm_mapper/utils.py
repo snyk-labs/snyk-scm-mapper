@@ -145,6 +145,7 @@ def get_org_projects(org: dict, token: str) -> dict:
     print(f"getting {org['id']} / {org['slug']} projects")
 
     try:
+        # V3 API call - /projects
         first_resp = v3_get(f"orgs/{org['id']}/projects?version={V3_VERS}", token)
     except Exception as e:
         print(f"{org['id']} project lookup failed with {e}")
