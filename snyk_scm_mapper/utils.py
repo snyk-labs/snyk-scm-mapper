@@ -171,20 +171,6 @@ def get_org_projects(org: dict, token: str) -> dict:
 
 
 @log
-def search_projects(base_name, origin, client, snyk_token, org_in: dict):
-
-    org: Dict = dict()
-
-    org["id"] = org_in["orgId"]
-    org["slug"] = list(org_in)[0]
-
-    query = {"filters": {"origin": origin, "name": base_name}}
-    path = f"org/{org['id']}/projects"
-
-    return json.loads(client.post(path, query).text)
-
-
-@log
 def to_camel_case(snake_str):
     components = snake_str.split("_")
     # We capitalize the first letter of each component except the first one
