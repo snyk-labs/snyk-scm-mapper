@@ -142,6 +142,7 @@ class Org(BaseModel):
         """
         params = {"targetId": target, "origin": origin, "limit": limit}
 
+        # V3 API call - /projects
         path = f"orgs/{self.id}/projects"
 
         projects = client.get_v3_pages(path, params)

@@ -145,6 +145,7 @@ def get_org_projects(org: dict, token: str) -> dict:
     print(f"getting {org['id']} / {org['slug']} projects")
 
     try:
+        # V3 API call - /projects
         first_resp = v3_get(f"orgs/{org['id']}/projects?version={V3_VERS}", token)
     except Exception as e:
         print(f"{org['id']} project lookup failed with {e}")
@@ -168,20 +169,6 @@ def get_org_projects(org: dict, token: str) -> dict:
     orgs_resp["data"] = all_pages
 
     return orgs_resp
-
-
-@log
-def search_projects(base_name, origin, client, snyk_token, org_in: dict):
-
-    org: Dict = dict()
-
-    org["id"] = org_in["orgId"]
-    org["slug"] = list(org_in)[0]
-
-    query = {"filters": {"origin": origin, "name": base_name}}
-    path = f"org/{org['id']}/projects"
-
-    return json.loads(client.post(path, query).text)
 
 
 @log
