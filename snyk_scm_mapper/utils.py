@@ -376,7 +376,15 @@ def get_organization_wrapper(gh: Github, gh_org_name: str, show_rate_limit: bool
             typer.echo("GitHub rate limit was hit.. backing off...")
         raise e
 
-
+@log
+@backoff.on_exception(backoff.expo, RateLimitExceededException)
+def get_repo_count_wrapper(gh: Github, repos , show_rate_limit: bool = False):
+    try:
+        return repos.totalCount
+    except RateLimitExceededException as e:
+        if not show_rate_limit:
+            typer.echo("GitHub rate limit was hit.. backing off...")
+        raise e
 @log
 @backoff.on_exception(backoff.expo, RateLimitExceededException)
 def get_repos_wrapper(gh_org: Organization, type: str, sort: str, direction: str, show_rate_limit: bool = False):

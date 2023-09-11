@@ -38,6 +38,7 @@ from utils import logger
 from utils import set_log_level
 from utils import update_client
 from utils import yopen
+from utils import get_repo_count_wrapper
 
 
 app = typer.Typer(add_completion=False)
@@ -252,7 +253,8 @@ def sync(
         gh_repos = get_repos_wrapper(
             gh_org=gh_org, show_rate_limit=show_rate_limit, type="all", sort="updated", direction="desc"
         )
-        gh_repos_count = gh_repos.totalCount
+        gh_repos_count = get_repo_count_wrapper(gh, gh_repos)
+        
         pages = gh_repos_count // GH_PAGE_LIMIT
         logger.debug(f"loaded org=[{pformat(gh_org)}] repos=[{pformat({gh_repos})}]")
         logger.debug(f"repos_count={gh_repos_count}, calculated pages={pages}")
