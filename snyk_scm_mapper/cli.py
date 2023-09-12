@@ -30,6 +30,7 @@ from utils import default_settings
 from utils import filter_chunk
 from utils import get_organization_wrapper
 from utils import get_page_wrapper
+from utils import get_repo_count_wrapper
 from utils import get_repos_wrapper
 from utils import jopen
 from utils import jwrite
@@ -48,7 +49,6 @@ watchlist = SnykWatchList()
 
 
 def settings_callback(ctx: typer.Context, param: typer.CallbackParam, value: str):
-
     if value and value != param.default:
         return value
     else:
@@ -178,7 +178,6 @@ def main(
         callback=settings_callback,
     ),
 ):
-
     # We keep this as the global settings hash
     global s
     global watchlist
@@ -252,7 +251,8 @@ def sync(
         gh_repos = get_repos_wrapper(
             gh_org=gh_org, show_rate_limit=show_rate_limit, type="all", sort="updated", direction="desc"
         )
-        gh_repos_count = gh_repos.totalCount
+        gh_repos_count = get_repo_count_wrapper(gh, gh_repos)
+
         pages = gh_repos_count // GH_PAGE_LIMIT
         logger.debug(f"loaded org=[{pformat(gh_org)}] repos=[{pformat({gh_repos})}]")
         logger.debug(f"repos_count={gh_repos_count}, calculated pages={pages}")
@@ -265,7 +265,6 @@ def sync(
         with typer.progressbar(
             length=pages, label=f"Processing {gh_repos_count} repos in {gh_org_name}: "
         ) as gh_progress:
-
             for r_int in range(0, pages):
                 logger.debug(f"processing repos page {r_int}")
                 for gh_repo in get_page_wrapper(gh_repos, r_int, show_rate_limit):
@@ -489,7 +488,6 @@ def targets(
             for branch in r.get_reimport(s.default_org, s.snyk_orgs):
                 logger.debug(f"processing branch={pformat(branch)}")
                 if branch.project_count() == 0 or force_refresh:
-
                     if force_default:
                         org_id = s.snyk_orgs[s.default_org]["orgId"]
                         int_id = s.snyk_orgs[s.default_org]["integrations"]["github-enterprise"]
@@ -601,7 +599,6 @@ def tags(
                 update_client(v1client, snyk_token)
 
                 for p in g_tags["tags"]:
-
                     # v1 api for tags only accepts strings for tag value
                     # this forces everything to string
                     for t in p["tags"]:
@@ -701,7 +698,6 @@ def autoconf(
 
     with typer.progressbar(group_orgs["orgs"], label="Retrieving every Orgs integration details: ") as orgs:
         for org in orgs:
-
             org_int = client.get(f"org/{org['id']}/integrations").json()
 
             if "github-enterprise" in org_int:
@@ -719,7 +715,6 @@ def autoconf(
 
 
 def load_conf():
-
     global s
     global watchlist
 

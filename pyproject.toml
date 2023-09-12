@@ -7,7 +7,7 @@ authors = ["Chris Barker <chris.barker@snyk.io>", "Scott Esbrandt <scott.esbrand
 [tool.poetry.dependencies]
 python = "^3.9"
 pysnyk = "^0.9"
-PyGithub = "^1.55"
+PyGithub = "^1.59.1"
 click = "^8.0.4"
 pydantic = "^1.9"
 typer = "^0.4.0"

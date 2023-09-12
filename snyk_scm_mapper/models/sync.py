@@ -60,7 +60,6 @@ class SnykWatchList(BaseModel):
         return data
 
     def get_repo(self, id) -> Repo:
-
         if self.has_repo(id):
             filter_repo = [r for r in self.repos if r.id == id]
 
@@ -69,7 +68,6 @@ class SnykWatchList(BaseModel):
             return None
 
     def has_repo(self, id) -> bool:
-
         filter_repo = [r for r in self.repos if r.id == id]
 
         return bool(len(filter_repo))
@@ -113,11 +111,9 @@ class SnykWatchList(BaseModel):
             org_name = "default"
 
         if self.has_repo(repo.id):
-
             existing_repo = self.get_repo(repo.id)
 
             if existing_repo.is_older(repo.updated_at) or existing_repo.org != org_name:
-
                 existing_repo.source = tmp_source
 
                 existing_repo.url = repo.html_url
@@ -157,11 +153,9 @@ class SnykWatchList(BaseModel):
                 pass
 
     def get_org_id(self, project: Project) -> str:
-
         pass
 
     def get_proj_tag_updates(self, org_ids: list) -> List[Branch]:
-
         has_tags = [r for r in self.repos if r.has_tags()]
 
         needs_tags = list()
@@ -178,11 +172,8 @@ class SnykWatchList(BaseModel):
                 repo_branches.append(repo_branch)
 
         for repo in repo_branches:
-
             for branch in repo["branches"]:
-
                 for project in branch.projects:
-
                     missing_tags = project.get_missing_tags(branch.tags)
 
                     if missing_tags:
@@ -196,7 +187,6 @@ class SnykWatchList(BaseModel):
         return needs_tags
 
     def get_org_from_topics(self, topics: list) -> str:
-
         orgs_with_topics = {d: v for d, v in self.snyk_orgs.items() if "topics" in v.keys()}
 
         if not len(orgs_with_topics) > 0:
