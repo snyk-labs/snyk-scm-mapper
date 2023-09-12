@@ -39,7 +39,6 @@ class Target(BaseModel):
     # , "origin", "remote_url", "is_private", "repo_id"
     @validator("name", "origin", "remote_url", pre=True)
     def validate_strings(cls, value, values, config, field):
-
         if isinstance(value, str):
             return value
 
@@ -56,7 +55,6 @@ class Target(BaseModel):
 
     @validator("is_private", pre=True)
     def validate_private(cls, value):
-
         if isinstance(value, bool):
             return value
 
@@ -69,7 +67,6 @@ class Target(BaseModel):
 
     @validator("repo_id", pre=True)
     def validate_repo_id(cls, value):
-
         if isinstance(value, str):
             return int(value)
         elif value is None:
@@ -189,7 +186,6 @@ class Org(BaseModel):
         self.last_updated = datetime.isoformat(datetime.utcnow())
 
     def get_target_info(self, id: UUID) -> Optional[Target]:
-
         found_target = [t for t in self.targets if str(t.id) == str(id)]
 
         if len(found_target) == 1:
@@ -199,7 +195,6 @@ class Org(BaseModel):
         return target
 
     def get_metadata(self) -> dict:
-
         the_dict = {
             "id": str(self.id),
             "name": str(self.name),
@@ -235,7 +230,6 @@ class Org(BaseModel):
         pass
 
     def add_project(self, project: Project):
-
         add_project = True
 
         for idx, item in enumerate(self.projects):
@@ -247,7 +241,6 @@ class Org(BaseModel):
             self.projects.append(project)
 
     def add_target(self, target: Target):
-
         add_target = True
 
         for idx, item in enumerate(self.targets):
@@ -272,20 +265,17 @@ class Org(BaseModel):
 
         for target_file in os.listdir(f"{path}/targets"):
             if os.path.isfile(f"{path}/targets/{target_file}") and target_file.endswith(".json"):
-
                 new_target = Target.parse_file(f"{path}/targets/{target_file}")
 
                 self.add_target(new_target)
 
         for project_file in os.listdir(f"{path}/projects"):
             if os.path.isfile(f"{path}/projects/{project_file}") and project_file.endswith(".json"):
-
                 new_project = Project.parse_file(f"{path}/projects/{project_file}")
 
                 self.add_project(new_project)
 
     def find_targets_by_repo(self, name, id) -> List[Target]:
-
         targets_by_id = [t for t in self.targets if t.repo_id == id]
 
         targets_by_name = [t for t in self.targets if str(t.name).lower() == str(name).lower()]
@@ -300,13 +290,11 @@ class Org(BaseModel):
             return targets_by_id
 
     def find_projects_by_target(self, id) -> List[Project]:
-
         projects = [p for p in self.projects if str(p.target).lower() == str(id).lower()]
 
         return projects
 
     def find_projects_by_repo(self, name, id) -> List[Project]:
-
         found_projects = list()
 
         targets = self.find_targets_by_repo(name, id)
@@ -356,7 +344,6 @@ class Orgs(BaseModel):
         pass
 
     def add_org(self, org: Org):
-
         add_org = True
 
         for idx, item in enumerate(self.orgs):
@@ -416,7 +403,6 @@ class Orgs(BaseModel):
             self.add_org(new_org)
 
     def find_projects_by_repo(self, name, id) -> List[Project]:
-
         found_projects = list()
 
         for org in self.orgs:
@@ -425,7 +411,6 @@ class Orgs(BaseModel):
         return found_projects
 
     def get_token_for_org(self, org: Org) -> str:
-
         group = [g for g in self.groups if str(g["id"]) == str(org.group_id)]
 
         snyk_token = group[0]["snyk_token"]
@@ -433,7 +418,6 @@ class Orgs(BaseModel):
         return snyk_token
 
     def get_token_for_group(self, group: str) -> str:
-
         group_tokens = [g for g in self.groups if g["name"] == group]
 
         snyk_token = group_tokens[0]["snyk_token"]
@@ -441,7 +425,6 @@ class Orgs(BaseModel):
         return snyk_token
 
     def get_orgs_by_group(self, group: dict) -> List[Org]:
-
         g_id = group["id"]
 
         orgs = [o for o in self.orgs if str(o.group_id) == str(g_id)]

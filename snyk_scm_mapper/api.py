@@ -39,7 +39,6 @@ def cleanup_url(path: str):
 
 
 def ensure_version(path: str, version: str) -> str:
-
     query = path.split("/")[-1]
 
     if "version" in query.lower():

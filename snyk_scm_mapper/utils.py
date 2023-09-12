@@ -128,7 +128,6 @@ def v3_get(endpoint, token, delay=1):
 
 @log
 def get_org_targets(org: dict, token: str) -> list:
-
     print(f"getting {org['id']} / {org['slug']} targets")
     targets_raw = v3_get(f"orgs/{org['id']}/targets?version={V3_VERS}", token)
 
@@ -141,7 +140,6 @@ def get_org_targets(org: dict, token: str) -> list:
 
 @log
 def get_org_projects(org: dict, token: str) -> dict:
-
     print(f"getting {org['id']} / {org['slug']} projects")
 
     try:
@@ -242,7 +240,6 @@ def default_settings(
 
     # our directories are always 'dirname'_dir
     if "_dir" in str(name):
-
         dirname: str = str(name).split("_")[0]
 
         the_dir_path = gen_path(conf_file, dirname)
@@ -253,7 +250,6 @@ def default_settings(
         return the_dir_path
 
     if name == "snyk_token":
-
         token_env_name = s["snyk"]["groups"][0]["token_env_name"]
 
         if token_env_name in environ.keys():
@@ -264,7 +260,6 @@ def default_settings(
         return token
 
     if name == "github_token":
-
         token_env_name = s["github_token_env_name"]
 
         if token_env_name in environ.keys():
@@ -376,15 +371,18 @@ def get_organization_wrapper(gh: Github, gh_org_name: str, show_rate_limit: bool
             typer.echo("GitHub rate limit was hit.. backing off...")
         raise e
 
+
 @log
 @backoff.on_exception(backoff.expo, RateLimitExceededException)
-def get_repo_count_wrapper(gh: Github, repos , show_rate_limit: bool = False):
+def get_repo_count_wrapper(gh: Github, repos, show_rate_limit: bool = False):
     try:
         return repos.totalCount
     except RateLimitExceededException as e:
         if not show_rate_limit:
             typer.echo("GitHub rate limit was hit.. backing off...")
         raise e
+
+
 @log
 @backoff.on_exception(backoff.expo, RateLimitExceededException)
 def get_repos_wrapper(gh_org: Organization, type: str, sort: str, direction: str, show_rate_limit: bool = False):

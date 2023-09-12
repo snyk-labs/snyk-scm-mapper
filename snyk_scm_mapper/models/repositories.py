@@ -49,7 +49,6 @@ class Project(BaseModel):
 
     @validator("name", "origin", "type", "status", "branch", pre=True)
     def validate_strings(cls, value, values, config, field):
-
         if isinstance(value, str):
             return value
 
@@ -63,7 +62,6 @@ class Project(BaseModel):
 
     @validator("target_path", pre=True)
     def validate_target_path(cls, value):
-
         if isinstance(value, str):
             return value
 
@@ -81,7 +79,6 @@ class Project(BaseModel):
 
     @validator("tags", pre=True)
     def validate_tags(cls, value):
-
         tags = list()
 
         if isinstance(value, list):
@@ -101,7 +98,6 @@ class Project(BaseModel):
 
     @validator("target", pre=True)
     def validate_target(cls, value):
-
         if isinstance(value, str):
             return value
 
@@ -177,13 +173,11 @@ class Repo(BaseModel):
         todo = self.parse_branches(default_org, snyk_orgs)
 
         for i, br in enumerate(todo):
-
             todo[i].projects = [p for p in self.projects if str(p.org_id) == br.org_id and p.branch == br.name]
 
         return todo
 
     def parse_branches(self, default_org: str, snyk_orgs: dict) -> List[Branch]:
-
         if self.org in snyk_orgs.keys():
             org_name = self.org
         else:
@@ -194,7 +188,6 @@ class Repo(BaseModel):
         todo = list()
 
         for b in str_branches:
-
             branch = Branch(
                 name=b,
                 org_slug=org_name,
@@ -219,7 +212,6 @@ class Repo(BaseModel):
 
                 # if we have any other values, we will update that also
                 if isinstance(v, dict):
-
                     if "orgName" in v.keys():
                         if v["orgName"] in snyk_orgs.keys():
                             org_name = v["orgName"]
@@ -241,7 +233,6 @@ class Repo(BaseModel):
         return todo
 
     def needs_reimport(self, default_org, snyk_orgs: dict) -> bool:
-
         # we can just break here and state we need to reimport because we have no projects
         if len(self.projects) == 0:
             return True
@@ -260,19 +251,16 @@ class Repo(BaseModel):
         return len(self.tags) > 0
 
     def get_project(self, id) -> Project:
-
         filter_repo = [r for r in self.projects if r.id == id]
 
         return filter_repo[0]
 
     def has_project(self, id) -> bool:
-
         filter_repo = [r for r in self.projects if r.id == id]
 
         return bool(len(filter_repo))
 
     def add_project(self, project: Project):
-
         if self.has_project(project.id):
             for idx, item in enumerate(self.projects):
                 if project.id == item.id:
@@ -311,9 +299,7 @@ class Repo(BaseModel):
         r_yaml.update(yaml.safe_load(import_yaml.decoded_content))
 
         if "instance" in r_yaml.keys():
-
             if instance in r_yaml["instance"].keys():
-
                 override = r_yaml["instance"].pop(instance)
 
                 # this drops the repo into the default org of the calling instance
@@ -337,7 +323,6 @@ class Repo(BaseModel):
             self.branches = r_yaml["branches"]
 
     def is_older(self, timestamp) -> bool:
-
         remote_ts = datetime.strptime(str(timestamp), "%Y-%m-%d %H:%M:%S")
 
         local_ts = datetime.strptime(str(self.updated_at), "%Y-%m-%d %H:%M:%S")
