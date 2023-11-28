@@ -2,7 +2,7 @@
 
 ![snyk-oss-category](https://github.com/snyk-labs/oss-images/blob/main/oss-community.jpg)
 
-**This repository will be deprecated as of February 20, 2024.**
+**This repository is now deprecated and will be archived as of March 1, 2024.**
 
 # Snyk Scm Mapper
 
