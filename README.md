@@ -2,6 +2,8 @@
 
 ![snyk-oss-category](https://github.com/snyk-labs/oss-images/blob/main/oss-community.jpg)
 
+**This repository is now deprecated and will be archived as of March 1, 2024.**
+
 # Snyk Scm Mapper
 
 A way to ensure your GitHub Repos containing projects that can be monitored by Snyk are infact monitored by Snyk.
