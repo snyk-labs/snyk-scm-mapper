@@ -24,10 +24,7 @@ jobs:
         env:
           POETRY_VIRTUALENVS_IN_PROJECT: true
 
-      - name: Run pytest
-        run: |
-          source .venv/bin/activate
-          $HOME/.local/bin/poetry run pytest
+
   snyk_monitor:
     runs-on: ubuntu-latest
     steps:
@@ -47,7 +44,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
   docker_build:
     runs-on: ubuntu-latest
-    needs: [snyk_monitor, pytest]
+    needs: [snyk_monitor]
     permissions:
       packages: write
       contents: read

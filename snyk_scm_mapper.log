@@ -1,1 +1,0 @@
-[cli.py: 363 - sync ] all_orgs=Orgs(orgs=[], cache='/Users/olegshprengel/Desktop/snyk-scm-mapper/cache', groups=[{'id': '7cc58012-acda-4171-9bef-7670298ed251', 'name': 'oleg-shprengel', 'token_env_name': 'SNYK_TOKEN', 'snyk_token': '670c96f7-f907-4538-8230-f2435050a5ca'}]) select_orgs=['29157d45-0d1d-48a3-b394-814d5b601e05', 'a2a20bbf-8363-4517-a13f-ef1f848da02d']
