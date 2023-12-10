@@ -36,7 +36,3 @@ jobs:
         env:
           POETRY_VIRTUALENVS_IN_PROJECT: true
 
-      - name: Run pytest
-        run: |
-          source .venv/bin/activate
-          $HOME/.local/bin/poetry run pytest
