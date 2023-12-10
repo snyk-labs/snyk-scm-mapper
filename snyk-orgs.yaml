@@ -1,0 +1,24 @@
+template-lym:
+  integrations:
+    azure-repos: 472ebd34-0465-4ff6-a7da-1445e7e2775d
+    bitbucket-cloud: 9ebc2316-968c-4e5d-ade4-1a35cf87d657
+    bitbucket-connect-app: 2401285d-ca3a-4764-baf6-01c3e29177e8
+    cli: 80c6ce5a-5d92-4cae-b07b-454b9e3436b1
+    docker-hub: 968bdf00-743f-4427-9008-0545fd74a4a9
+    github: b2659328-b0b1-4725-a41a-e7371eae65d5
+    github-enterprise: 255aa3c9-b913-422a-aca5-7d69e7de3896
+    gitlab: 67afe431-f62f-487d-99b8-85c5297b98f1
+    kubernetes: ad1012fa-7f34-4246-b13f-892fd91c2cf0
+  orgId: 29157d45-0d1d-48a3-b394-814d5b601e05
+testcopy:
+  integrations:
+    azure-repos: 450a7963-3913-4669-8bc2-4c1cff7d24e9
+    bitbucket-cloud: cfbc906b-0b73-46e4-b7e5-70dc1149d195
+    bitbucket-connect-app: d94ef2cb-c391-4af9-abf7-58c87d263b87
+    cli: 65202fe7-4a6d-45b5-a172-077d0713f1b9
+    docker-hub: 19583ce7-dca0-4695-ac89-957197094ced
+    github: c07276c6-9c28-4b00-9133-084987513c20
+    github-enterprise: fc1cf6eb-0954-4cb4-ab2f-f372be303a07
+    gitlab: 13e50682-52df-49f0-ad3c-204a9868229b
+    kubernetes: fee6e57b-caf4-4a1a-b3e0-5184f3219248
+  orgId: a2a20bbf-8363-4517-a13f-ef1f848da02d

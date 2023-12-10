@@ -1,0 +1,11 @@
+default:
+  integrationName: github-enterprise
+  orgName: template-lym
+github_orgs:
+- olegs-dev-team-1
+schema: 2
+snyk:
+  groups:
+  - id: 7cc58012-acda-4171-9bef-7670298ed251
+    name: oleg-shprengel
+    token_env_name: SNYK_TOKEN
